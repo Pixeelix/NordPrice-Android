@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Top of the dark-mode page gradient. -->
+    <color name="windowBackground">#1A1E35</color>
+</resources>

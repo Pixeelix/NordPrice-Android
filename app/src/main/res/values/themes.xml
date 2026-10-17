@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      Compose draws everything; the platform theme only has to be borderless and to paint the
+      window with the top of the page gradient, so a cold start shows the app's own blue rather
+      than a white flash.
+    -->
+    <style name="Theme.NordPrice" parent="Theme.AppCompat.DayNight.NoActionBar">
+        <item name="android:windowBackground">@color/windowBackground</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
+</resources>

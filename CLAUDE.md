@@ -31,6 +31,7 @@ app/src/main/java/koodipardik/nordprice/
                NetworkMonitor, SampleData
   settings/    AppSettings — one DataStore-backed StateFlow<Settings>
   ui/
+    Layout.kt  rememberIsTablet() + the 340dp side column used by both wide layouts
     theme/     Color.kt holds both palettes verbatim from the iOS asset catalog
     chart/     ChartScene.kt (shared geometry + rules), ChartCanvas.kt (Compose renderer),
                ChartStyles.kt (day / history / widget variants), ChartCards.kt, MonotoneSpline.kt
@@ -47,6 +48,9 @@ collaborators — that is the whole DI story, keep it that way.
 
 ## Rules this codebase follows
 
+* **Phone and tablet share their building blocks, not their layouts.** `DayCards`, `DayChart`,
+  `HistoryCards` and `ChartHeader` are composed by both arrangements; adding a card means adding it
+  once.
 * **Match iOS unless the platform disagrees.** Behavioural quirks are ported on purpose, with a
   comment saying so: the current-bar index is a proportion-of-day estimate (as on iOS, wrong on two
   DST days a year), the decimal separator is always a comma regardless of locale, and day bounds

@@ -38,7 +38,7 @@ bundle id covers both configurations.
 | History | `HistoryView` | `HistoryScreen` — week/month/year, period average, cheapest/dearest, chart |
 | Settings | `SettingsView` | `SettingsScreen` — same sections, rows and icons |
 | Widget | `NordPriceWidgetExtension` (small + medium) | `NordPriceWidget` (Glance), one resizable provider that adapts to its cell span |
-| iPad | `DashboardView` | not ported yet; the phone layout fills the width on tablets |
+| iPad / large window | `DashboardView` + `HistoryView`'s wide layout | `PriceDashboard` and the wide `HistoryScreen`: cards in a 340 dp column beside each chart, Today and Tomorrow merged into one "Prices" tab |
 
 Core rules carried over unchanged: `€/MWh` → unit conversion (÷1000, ÷1, ÷10) with a comma decimal
 separator regardless of locale, per-market VAT (EE 24 %, LV 21 %, LT 21 %, FI 25,5 %), price-level
@@ -66,8 +66,14 @@ Data comes from `https://dashboard.elering.ee/api/nps/price` (Elering), on plain
 * **Sparse API answers.** The iOS decoder requires all four markets to be present; Elering answers
   with `null` for a market with no data, so every list is optional here.
 
-Not ported yet: AdMob banners and UMP consent, Firebase Analytics, threshold notifications (FCM +
-the existing `syncNotificationDevice` Cloud Function), and the iPad-style side-by-side layout.
+Not ported yet: AdMob banners and UMP consent, Firebase Analytics, and threshold notifications
+(FCM + the existing `syncNotificationDevice` Cloud Function).
+
+## Large screens
+
+The tablet layout switches on `smallestScreenWidthDp >= 600`, which — like the iOS check for a
+regular width *and* a regular height — keeps a phone in landscape on the phone layout, because
+`smallestScreenWidthDp` ignores rotation.
 
 ## Widget
 

@@ -7,12 +7,13 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
@@ -62,7 +63,9 @@ import koodipardik.nordprice.ui.components.ScreenTitle
 import koodipardik.nordprice.ui.chart.ChartHeader
 import koodipardik.nordprice.ui.components.appCard
 import koodipardik.nordprice.ui.components.unitLabel
+import koodipardik.nordprice.ui.TabletSideColumnWidth
 import koodipardik.nordprice.ui.periodTitle
+import koodipardik.nordprice.ui.rememberIsTablet
 import koodipardik.nordprice.ui.shortBarDate
 import koodipardik.nordprice.ui.rememberContainer
 import koodipardik.nordprice.ui.rememberSettings
@@ -91,43 +94,11 @@ fun HistoryScreen() {
     // A region change is a different market's whole history.
     androidx.compose.runtime.LaunchedEffect(settings.region) { viewModel.configure(settings.region) }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(horizontal = CardHorizontalInset),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        ScreenTitle(stringResource(R.string.title_price_history))
-
-        AverageCard(
-            state = state,
-            onBack = viewModel::goBack,
-            onForward = viewModel::goForward,
-            onPickDate = { viewModel.select(it) },
-        )
-        Spacer(Modifier.height(12.dp))
-
-        HistoryMinMaxCard(
-            cheapestLabel = stringResource(R.string.title_min),
-            cheapestValue = displayPrice(state.cheapest?.rawPriceMWh, settings),
-            cheapestDate = state.cheapest?.let { shortBarDate(it.start, state.period) } ?: " ",
-            expensiveLabel = stringResource(R.string.title_max),
-            expensiveValue = displayPrice(state.mostExpensive?.rawPriceMWh, settings),
-            expensiveDate = state.mostExpensive?.let { shortBarDate(it.start, state.period) } ?: " ",
-            showLevelDots = settings.colorfulChart,
-            cheapestDot = state.cheapest?.level?.let { Color(it.colorHex) },
-            expensiveDot = state.mostExpensive?.level?.let { Color(it.colorHex) },
-        )
-        Spacer(Modifier.height(12.dp))
-
-        PeriodPicker(period = state.period, onSelect = viewModel::setPeriod)
-        Spacer(Modifier.height(12.dp))
-
+    val title = stringResource(R.string.title_price_history)
+    val retryAndToggle: @Composable (Modifier) -> Unit = { modifier ->
         HistoryChart(
             state = state,
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(1f),
+            modifier = modifier,
             onRetry = viewModel::load,
             onToggleChartType = {
                 container.settings.setChartType(
@@ -135,8 +106,69 @@ fun HistoryScreen() {
                 )
             },
         )
+    }
+
+    // A tablet gets the iOS wide layout: the cards in a column beside the chart, which needs the
+    // room more than the cards do.
+    if (rememberIsTablet()) {
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = CardHorizontalInset, vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            verticalAlignment = Alignment.Top,
+        ) {
+            Column(
+                modifier = Modifier.width(TabletSideColumnWidth),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                ScreenTitle(title)
+                HistoryCards(state, settings, viewModel)
+            }
+            retryAndToggle(Modifier.weight(1f).fillMaxHeight())
+        }
+        return
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = CardHorizontalInset),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        ScreenTitle(title)
+        HistoryCards(state, settings, viewModel)
+        Spacer(Modifier.height(12.dp))
+        retryAndToggle(Modifier.fillMaxWidth().weight(1f))
         Spacer(Modifier.height(8.dp))
     }
+}
+
+/** Average card, cheapest/dearest card and the period control, shared by both layouts. */
+@Composable
+private fun HistoryCards(
+    state: HistoryUiState,
+    settings: koodipardik.nordprice.settings.Settings,
+    viewModel: HistoryViewModel,
+) {
+    AverageCard(
+        state = state,
+        onBack = viewModel::goBack,
+        onForward = viewModel::goForward,
+        onPickDate = { viewModel.select(it) },
+    )
+    HistoryMinMaxCard(
+        cheapestLabel = stringResource(R.string.title_min),
+        cheapestValue = displayPrice(state.cheapest?.rawPriceMWh, settings),
+        cheapestDate = state.cheapest?.let { shortBarDate(it.start, state.period) } ?: " ",
+        expensiveLabel = stringResource(R.string.title_max),
+        expensiveValue = displayPrice(state.mostExpensive?.rawPriceMWh, settings),
+        expensiveDate = state.mostExpensive?.let { shortBarDate(it.start, state.period) } ?: " ",
+        showLevelDots = settings.colorfulChart,
+        cheapestDot = state.cheapest?.level?.let { Color(it.colorHex) },
+        expensiveDot = state.mostExpensive?.level?.let { Color(it.colorHex) },
+    )
+    PeriodPicker(period = state.period, onSelect = viewModel::setPeriod)
 }
 
 @Composable
@@ -383,6 +415,7 @@ private fun HistoryChart(
                         barCount = count,
                         yLabel = { PriceFormat.axisLabel(it, settings.unit) },
                         xLabel = { index -> axisLabels[index] ?: "" },
+                        xTickIndices = { _ -> tickIndices },
                     ),
                     selected = selected,
                     onSelection = { selected = it },

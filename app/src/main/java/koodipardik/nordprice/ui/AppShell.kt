@@ -42,16 +42,34 @@ import koodipardik.nordprice.core.Day
 import koodipardik.nordprice.data.SampleData
 import koodipardik.nordprice.ui.components.ConnectionLostScreen
 import koodipardik.nordprice.ui.components.GradientBackground
+import koodipardik.nordprice.ui.rememberIsTablet
 import koodipardik.nordprice.ui.history.HistoryScreen
+import koodipardik.nordprice.ui.price.PriceDashboard
 import koodipardik.nordprice.ui.price.PriceScreen
 import koodipardik.nordprice.ui.settings.SettingsScreen
 import koodipardik.nordprice.ui.theme.AppTheme
 
-private enum class Tab(val labelRes: Int, val icon: ImageVector) {
-    TODAY(R.string.label_today, Icons.Filled.Bolt),
-    TOMORROW(R.string.label_tomorrow, Icons.Filled.Schedule),
-    HISTORY(R.string.label_history, Icons.Filled.BarChart),
-    SETTINGS(R.string.label_settings, Icons.Filled.Settings),
+/**
+ * One bottom-bar destination. The list is built per window size: a phone gets Today and Tomorrow,
+ * a tablet merges them into a single "Prices" dashboard, exactly as the iOS tab bar does when both
+ * size classes are regular.
+ */
+private class TabSpec(
+    val labelRes: Int,
+    val icon: ImageVector,
+    val content: @Composable () -> Unit,
+)
+
+@Composable
+private fun tabs(tablet: Boolean): List<TabSpec> = buildList {
+    if (tablet) {
+        add(TabSpec(R.string.label_prices, Icons.Filled.Bolt) { PriceDashboard() })
+    } else {
+        add(TabSpec(R.string.label_today, Icons.Filled.Bolt) { PriceScreen(Day.TODAY) })
+        add(TabSpec(R.string.label_tomorrow, Icons.Filled.Schedule) { PriceScreen(Day.TOMORROW) })
+    }
+    add(TabSpec(R.string.label_history, Icons.Filled.BarChart) { HistoryScreen() })
+    add(TabSpec(R.string.label_settings, Icons.Filled.Settings) { SettingsScreen() })
 }
 
 /**
@@ -72,10 +90,11 @@ fun NordPriceRoot() {
     }
 
     AppShell(settings.alwaysOnDisplay, settings.language.code)
+    val tablet = rememberIsTablet()
 
     Box(modifier = Modifier.fillMaxSize()) {
         GradientBackground {
-            var selected by remember { mutableIntStateOf(Tab.TODAY.ordinal) }
+            var selected by remember(tablet) { mutableIntStateOf(0) }
             Scaffold(
                 modifier = Modifier.fillMaxSize(),
                 containerColor = Color.Transparent,
@@ -85,7 +104,7 @@ fun NordPriceRoot() {
                         containerColor = Color.Transparent,
                         tonalElevation = 0.dp,
                     ) {
-                        Tab.entries.forEachIndexed { index, tab ->
+                        tabs(tablet).forEachIndexed { index, tab ->
                             NavigationBarItem(
                                 selected = selected == index,
                                 onClick = { selected = index },
@@ -120,12 +139,8 @@ fun NordPriceRoot() {
                         .padding(contentPadding)
                         .fillMaxSize(),
                 ) {
-                    when (Tab.entries[selected]) {
-                        Tab.TODAY -> PriceScreen(Day.TODAY)
-                        Tab.TOMORROW -> PriceScreen(Day.TOMORROW)
-                        Tab.HISTORY -> HistoryScreen()
-                        Tab.SETTINGS -> SettingsScreen()
-                    }
+                    val destinations = tabs(tablet)
+                    destinations.getOrNull(selected)?.content?.invoke()
                 }
             }
         }

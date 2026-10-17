@@ -1,5 +1,9 @@
 package koodipardik.nordprice
 
+import koodipardik.nordprice.ui.chart.ChartSceneBuilder
+import koodipardik.nordprice.ui.chart.ChartStyles
+import koodipardik.nordprice.ui.chart.ChartValue
+
 import koodipardik.nordprice.core.ChartResolution
 import koodipardik.nordprice.core.Day
 import koodipardik.nordprice.core.DayCoverage
@@ -121,5 +125,49 @@ class CoreRulesTest {
         assertEquals(1.21, Region.LITHUANIA.taxRate, 1e-9)
         assertEquals(1.255, Region.FINLAND.taxRate, 1e-9)
         assertEquals("25,5%", Region.FINLAND.taxPercentage)
+    }
+}
+
+/**
+ * The history chart inherits most of its style from the day chart, and once did so without
+ * overriding the tick positions — which left it labelling bars with hour-of-day indices that have
+ * no label, i.e. drawing a single "1" on the axis. These two assertions are that bug.
+ */
+class ChartStyleTest {
+
+    private val bars = (0 until 17).map {
+        ChartValue(it, 50.0 + it, "d$it", koodipardik.nordprice.core.PriceLevel.CHEAP)
+    }
+
+    @Test
+    fun `history uses the caller's tick positions`() {
+        val style = ChartStyles.history(
+            colors = koodipardik.nordprice.ui.theme.LightColors,
+            chartType = koodipardik.nordprice.core.ChartType.BAR,
+            colorful = true,
+            barCount = bars.size,
+            yLabel = { "%.0f".format(it) },
+            xLabel = { index -> listOf(0, 7, 14).let { if (index in it) "day$index" else "" } },
+            xTickIndices = { count -> (0 until count step 7).toList() },
+        )
+        val scene = ChartSceneBuilder.build(bars, style, selected = null, widthPx = 800f, heightPx = 300f, density = 2f)
+
+        assertEquals(listOf(0, 7, 14), scene.xTicks.map { it.value.toInt() })
+        assertEquals(listOf("day0", "day7", "day14"), scene.xTicks.map { it.label })
+        assertTrue(scene.xTicks.map { it.position }.distinct().size == 3)
+    }
+
+    @Test
+    fun `the day chart labels four hours of the day`() {
+        val day = (0 until 24).map { ChartValue(it, 50.0, "%02d:00".format(it)) }
+        val style = ChartStyles.day(
+            colors = koodipardik.nordprice.ui.theme.LightColors,
+            chartType = koodipardik.nordprice.core.ChartType.BAR,
+            colorful = true,
+            resolution = koodipardik.nordprice.core.ChartResolution.ONE_HOUR,
+        ) { "%.2f".format(it) }
+        val scene = ChartSceneBuilder.build(day, style, selected = null, widthPx = 800f, heightPx = 300f, density = 2f)
+
+        assertEquals(listOf("00", "06", "12", "18"), scene.xTicks.map { it.label })
     }
 }

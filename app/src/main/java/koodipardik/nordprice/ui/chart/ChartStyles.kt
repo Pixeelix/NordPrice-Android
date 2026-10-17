@@ -80,7 +80,11 @@ object ChartStyles {
         barCount: Int,
         yLabel: (Double) -> String,
         xLabel: (Int) -> String,
+        xTickIndices: (count: Int) -> List<Int>,
     ) = day(colors, chartType, colorful, ChartResolution.ONE_HOUR, yLabel).copy(
+        // History steps by bars, not by hour of the day: the week view labels every day, the month
+        // view every week, the year view every other month.
+        xTickIndices = xTickIndices,
         barWidth = SceneBarWidth.Ratio(0.7f),
         // More than ~20 bars in a day-width chart and rounded corners turn into mush.
         barCornerRadiusDp = if (barCount > 20) 1.5f else 3f,

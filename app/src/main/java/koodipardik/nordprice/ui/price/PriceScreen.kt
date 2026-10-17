@@ -1,12 +1,15 @@
 package koodipardik.nordprice.ui.price
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -22,75 +25,50 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import koodipardik.nordprice.R
 import koodipardik.nordprice.core.ChartType
 import koodipardik.nordprice.core.Day
-import koodipardik.nordprice.ui.dayTitle
+import koodipardik.nordprice.core.Region
+import koodipardik.nordprice.data.PriceRepository
+import koodipardik.nordprice.settings.Settings
+import koodipardik.nordprice.ui.TabletSideColumnWidth
+import koodipardik.nordprice.ui.components.CardHorizontalInset
 import koodipardik.nordprice.ui.components.HeroPriceCard
-import koodipardik.nordprice.ui.components.ScreenTitle
 import koodipardik.nordprice.ui.components.MinAvgMaxCard
 import koodipardik.nordprice.ui.components.RegionFlagButton
 import koodipardik.nordprice.ui.components.RegionPickerSheet
+import koodipardik.nordprice.ui.components.ScreenTitle
 import koodipardik.nordprice.ui.components.unitLabel
 import koodipardik.nordprice.ui.chart.PriceChartCard
+import koodipardik.nordprice.ui.dayTitle
 import koodipardik.nordprice.ui.rememberContainer
 import koodipardik.nordprice.ui.rememberSettings
 import koodipardik.nordprice.ui.theme.AppTheme
-import koodipardik.nordprice.ui.components.CardHorizontalInset
-import java.time.LocalDate
-import java.time.ZoneId
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import koodipardik.nordprice.core.Region
-import koodipardik.nordprice.data.PriceRepository
+import java.time.LocalDate
+import java.time.ZoneId
 
 /**
- * Today and Tomorrow. They are one screen because they are one screen on iOS too, minus a few
- * cards: today leads with the current price, tomorrow leads with its min–max range and shows a
+ * Today or Tomorrow on a phone: the day's cards stacked over its chart.
+ *
+ * Today leads with the current price, tomorrow leads with its min–max range and shows a
  * placeholder until the day-ahead auction publishes around 14:00–15:00.
  */
 @Composable
 fun PriceScreen(day: Day) {
     val container = rememberContainer()
     val settings = rememberSettings()
-    val chartViewModel: ChartViewModel = viewModel(
-        key = "chart-$day",
-        factory = ChartViewModel.factory(container, day),
-    )
+    val chartViewModel = rememberChartViewModel(day)
     val chartState by chartViewModel.state.collectAsStateWithLifecycle()
-
-    val currentPriceViewModel: CurrentPriceViewModel? = if (day == Day.TODAY) {
-        viewModel(factory = CurrentPriceViewModel.factory(container))
-    } else {
-        null
-    }
-    val priceState = currentPriceViewModel?.state?.collectAsStateWithLifecycle()
-
+    val priceState = rememberCurrentPriceState(day)
     var showRegionPicker by remember { mutableStateOf(false) }
-    val scope = rememberCoroutineScope()
 
-    LifecycleResumeEffect(day) {
-        chartViewModel.onResume()
-        currentPriceViewModel?.onResume()
-        // Tomorrow's prices appear mid-afternoon; warm the cache even if the user never opens
-        // the tab, so the widget has something to show after midnight without a network call.
-        if (day == Day.TODAY) {
-            scope.launchPrefetchTomorrow(container.priceRepository, settings.region)
-        }
-        onPauseOrDispose {
-            chartViewModel.cancelInFlight()
-            currentPriceViewModel?.cancelInFlight()
-        }
-    }
-
-    val title = stringResource(
-        if (day == Day.TODAY) R.string.title_todays_price else R.string.title_tomorrows_price,
-    )
+    DayLifecycleEffects(day, chartViewModel, priceState.viewModel)
 
     Column(
         modifier = Modifier
@@ -98,102 +76,152 @@ fun PriceScreen(day: Day) {
             .padding(horizontal = CardHorizontalInset),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        ScreenTitle(title)
+        ScreenTitle(dayTitleText(day))
 
-        when {
-            day == Day.TODAY -> {
-                CurrentPriceCard(
-                    state = priceState?.value ?: CurrentPriceViewModel.UiState(),
-                    settings = settings,
-                    onRegionClick = { showRegionPicker = true },
-                )
-                Spacer(Modifier.height(12.dp))
-                MinAvgMaxCard(
-                    min = chartState.min,
-                    avg = chartState.avg,
-                    max = chartState.max,
-                )
-                Spacer(Modifier.height(12.dp))
-                DayChart(
-                    day = day,
-                    chartState = chartState,
-                    settings = settings,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f),
-                )
-            }
-
-            chartState.missingData -> TomorrowPendingCard(Modifier.weight(1f))
-
-            else -> {
-                HeroPriceCard(
-                    leading = {
-                        RegionFlagButton(region = settings.region, onClick = { showRegionPicker = true })
-                    },
-                    value = "${chartState.min} - ${chartState.max}",
-                    unit = unitLabel(settings.unit),
-                    valueAccessibilityLabel = stringResource(R.string.a11y_price_range),
-                )
-                Spacer(Modifier.height(12.dp))
-                MinAvgMaxCard(
-                    min = chartState.min,
-                    avg = chartState.avg,
-                    max = chartState.max,
-                )
-                Spacer(Modifier.height(12.dp))
-                DayChart(
-                    day = day,
-                    chartState = chartState,
-                    settings = settings,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f),
-                )
-            }
+        if (day == Day.TOMORROW && chartState.missingData) {
+            TomorrowPendingCard(Modifier.weight(1f))
+        } else {
+            DayCards(day, chartState, priceState.value, onRegionClick = { showRegionPicker = true })
+            Spacer(Modifier.height(12.dp))
+            DayChart(day, chartState, settings, Modifier.fillMaxWidth().weight(1f))
         }
 
         // Phase 2: the AdMob anchor banner slot goes here.
         Spacer(Modifier.height(8.dp))
     }
 
-    if (showRegionPicker) {
-        RegionPickerSheet(
-            onDismiss = { showRegionPicker = false },
-            onSelect = {
-                container.settings.setRegion(it)
-                showRegionPicker = false
+    RegionPicker(showRegionPicker) { showRegionPicker = false }
+}
+
+/**
+ * The tablet layout: today and tomorrow share one screen, one row per day, each with a narrow
+ * column of cards beside its chart — the port of the iOS `DashboardView`, which appears when the
+ * window is regular width *and* regular height.
+ */
+@Composable
+fun PriceDashboard() {
+    val container = rememberContainer()
+    val settings = rememberSettings()
+    val todayViewModel = rememberChartViewModel(Day.TODAY)
+    val tomorrowViewModel = rememberChartViewModel(Day.TOMORROW)
+    val todayState by todayViewModel.state.collectAsStateWithLifecycle()
+    val tomorrowState by tomorrowViewModel.state.collectAsStateWithLifecycle()
+    val priceState = rememberCurrentPriceState(Day.TODAY)
+    var showRegionPicker by remember { mutableStateOf(false) }
+
+    DayLifecycleEffects(Day.TODAY, todayViewModel, priceState.viewModel)
+    DayLifecycleEffects(Day.TOMORROW, tomorrowViewModel, null)
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = CardHorizontalInset, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(20.dp),
+    ) {
+        DayRow(
+            title = dayTitleText(Day.TODAY),
+            modifier = Modifier.weight(1f),
+            cards = {
+                DayCards(Day.TODAY, todayState, priceState.value, onRegionClick = { showRegionPicker = true })
+            },
+            chart = {
+                DayChart(Day.TODAY, todayState, settings, Modifier.fillMaxSize())
             },
         )
+
+        DayRow(
+            title = dayTitleText(Day.TOMORROW),
+            modifier = Modifier.weight(1f),
+            cards = {
+                if (!tomorrowState.missingData) {
+                    DayCards(Day.TOMORROW, tomorrowState, null, onRegionClick = { showRegionPicker = true })
+                }
+            },
+            chart = {
+                if (tomorrowState.missingData) {
+                    TomorrowPendingCard(Modifier.fillMaxSize())
+                } else {
+                    DayChart(Day.TOMORROW, tomorrowState, settings, Modifier.fillMaxSize())
+                }
+            },
+        )
+
+        // Phase 2: the AdMob anchor banner slot goes here.
+    }
+
+    RegionPicker(showRegionPicker) { showRegionPicker = false }
+}
+
+/** One row of the dashboard: title and cards in a fixed-width column, chart taking the rest. */
+@Composable
+private fun DayRow(
+    title: String,
+    modifier: Modifier = Modifier,
+    cards: @Composable () -> Unit,
+    chart: @Composable () -> Unit,
+) {
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
+        verticalAlignment = Alignment.Top,
+    ) {
+        Column(
+            modifier = Modifier.width(TabletSideColumnWidth),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Text(
+                text = title,
+                fontSize = 26.sp,
+                fontWeight = FontWeight.Medium,
+                color = AppTheme.textOnBackground,
+                modifier = Modifier.padding(start = 4.dp),
+            )
+            cards()
+        }
+        Box(modifier = Modifier.weight(1f)) { chart() }
     }
 }
 
+/** Current price (today) or min–max range (tomorrow), over the min/avg/max card. */
 @Composable
-private fun CurrentPriceCard(
-    state: CurrentPriceViewModel.UiState,
-    settings: koodipardik.nordprice.settings.Settings,
+private fun DayCards(
+    day: Day,
+    chartState: ChartUiState,
+    priceState: CurrentPriceViewModel.UiState?,
     onRegionClick: () -> Unit,
 ) {
-    HeroPriceCard(
-        leading = { RegionFlagButton(region = settings.region, onClick = onRegionClick) },
-        trailing = {
-            Text(text = state.timestamp, fontSize = 15.sp, color = AppTheme.cardText)
-        },
-        value = state.price,
-        unit = unitLabel(settings.unit),
-        valueAccessibilityLabel = stringResource(R.string.text_current_price),
-    )
+    val settings = rememberSettings()
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        if (day == Day.TODAY) {
+            HeroPriceCard(
+                leading = { RegionFlagButton(region = settings.region, onClick = onRegionClick) },
+                trailing = {
+                    Text(text = priceState?.timestamp.orEmpty(), fontSize = 15.sp, color = AppTheme.cardText)
+                },
+                value = priceState?.price ?: "---",
+                unit = unitLabel(settings.unit),
+                valueAccessibilityLabel = stringResource(R.string.text_current_price),
+            )
+        } else {
+            HeroPriceCard(
+                leading = { RegionFlagButton(region = settings.region, onClick = onRegionClick) },
+                value = "${chartState.min} - ${chartState.max}",
+                unit = unitLabel(settings.unit),
+                valueAccessibilityLabel = stringResource(R.string.a11y_price_range),
+            )
+        }
+        MinAvgMaxCard(min = chartState.min, avg = chartState.avg, max = chartState.max)
+    }
 }
 
 @Composable
 private fun DayChart(
     day: Day,
     chartState: ChartUiState,
-    settings: koodipardik.nordprice.settings.Settings,
+    settings: Settings,
     modifier: Modifier = Modifier,
 ) {
     val container = rememberContainer()
-    val dayOffset = if (day == Day.TOMORROW) 1L else 0L
     PriceChartCard(
         values = chartState.values,
         chartType = settings.chartType,
@@ -201,7 +229,10 @@ private fun DayChart(
         unit = settings.unit,
         resolution = settings.chartResolution,
         loading = chartState.loading,
-        title = dayTitle(LocalDate.now(ZoneId.systemDefault()).plusDays(dayOffset)),
+        title = dayTitle(
+            LocalDate.now(ZoneId.systemDefault())
+                .plusDays(if (day == Day.TOMORROW) 1L else 0L),
+        ),
         onToggleChartType = {
             container.settings.setChartType(
                 if (settings.chartType == ChartType.BAR) ChartType.LINE else ChartType.BAR,
@@ -211,7 +242,7 @@ private fun DayChart(
     )
 }
 
-/** Tomorrow before the auction: the "available from 15:00" note, styled as a card. */
+/** Tomorrow before the auction: the "available from 15:00" note. */
 @Composable
 private fun TomorrowPendingCard(modifier: Modifier = Modifier) {
     Box(modifier = modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
@@ -228,6 +259,74 @@ private fun TomorrowPendingCard(modifier: Modifier = Modifier) {
     }
 }
 
+// MARK: - Shared plumbing
+
+@Composable
+private fun dayTitleText(day: Day): String = stringResource(
+    if (day == Day.TODAY) R.string.title_todays_price else R.string.title_tomorrows_price,
+)
+
+@Composable
+private fun rememberChartViewModel(day: Day): ChartViewModel {
+    val container = rememberContainer()
+    return viewModel(key = "chart-$day", factory = ChartViewModel.factory(container, day))
+}
+
+/** Holder so the dashboard can drive the current-price model without duplicating its lifecycle. */
+private class CurrentPriceHolder(
+    val viewModel: CurrentPriceViewModel?,
+    val value: CurrentPriceViewModel.UiState,
+)
+
+@Composable
+private fun rememberCurrentPriceState(day: Day): CurrentPriceHolder {
+    if (day != Day.TODAY) return CurrentPriceHolder(null, CurrentPriceViewModel.UiState())
+    val container = rememberContainer()
+    val model: CurrentPriceViewModel = viewModel(factory = CurrentPriceViewModel.factory(container))
+    return CurrentPriceHolder(model, model.state.collectAsStateWithLifecycle().value)
+}
+
+/**
+ * Load on resume, cancel on pause — the Android shape of iOS's `scenePhase` handling — plus the
+ * tomorrow prefetch that only today's screen does.
+ */
+@Composable
+private fun DayLifecycleEffects(
+    day: Day,
+    chartViewModel: ChartViewModel,
+    currentPriceViewModel: CurrentPriceViewModel?,
+) {
+    val container = rememberContainer()
+    val settings = rememberSettings()
+    val scope = rememberCoroutineScope()
+
+    LifecycleResumeEffect(day) {
+        chartViewModel.onResume()
+        currentPriceViewModel?.onResume()
+        // Tomorrow's prices appear mid-afternoon; warm the cache even if the user never opens the
+        // tab, so the widget has something to show after midnight without a network call.
+        if (day == Day.TODAY) {
+            scope.launchPrefetchTomorrow(container.priceRepository, settings.region)
+        }
+        onPauseOrDispose {
+            chartViewModel.cancelInFlight()
+            currentPriceViewModel?.cancelInFlight()
+        }
+    }
+}
+
+@Composable
+private fun RegionPicker(shown: Boolean, onDismiss: () -> Unit) {
+    val container = rememberContainer()
+    if (!shown) return
+    RegionPickerSheet(
+        onDismiss = onDismiss,
+        onSelect = {
+            container.settings.setRegion(it)
+            onDismiss()
+        },
+    )
+}
 
 /** Fire-and-forget cache warm for tomorrow's day, mirroring iOS `prefetchTomorrow()`. */
 internal fun CoroutineScope.launchPrefetchTomorrow(repository: PriceRepository, region: Region) {

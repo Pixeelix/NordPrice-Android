@@ -1,6 +1,5 @@
 package koodipardik.nordprice.ui.chart
 
-import android.graphics.Path
 import koodipardik.nordprice.core.PriceLevel
 import kotlin.math.ceil
 import kotlin.math.floor
@@ -22,7 +21,7 @@ data class ChartValue(
 )
 
 /** How a value maps to a pixel along one axis. */
-internal typealias Mapper = (Double) -> Float
+internal typealias SceneMapperFn = (Double) -> Float
 
 /**
  * Monotone cubic (Fritsch–Carlson) interpolation — the curve Swift Charts'
@@ -31,11 +30,13 @@ internal typealias Mapper = (Double) -> Float
  *
  * Tangents are solved once for the whole series and segments emitted on demand, so the elapsed
  * and upcoming halves of today's line join without a kink at the current interval.
+ *
+ * The curve is handed out as sampled points rather than a platform path: the app draws it with
+ * Compose and the home-screen widget with `android.graphics`, and a shared polyline is what keeps
+ * those two pixel-identical.
  */
-internal class MonotoneSpline(
-    private val px: DoubleArray,
-    private val py: DoubleArray,
-) {
+internal class MonotoneSpline(private val px: DoubleArray, private val py: DoubleArray) {
+
     private val n: Int = px.size
     private val dx = DoubleArray((n - 1).coerceAtLeast(0)) { px[it + 1] - px[it] }
     private val slope = DoubleArray(dx.size) { i ->
@@ -70,34 +71,34 @@ internal class MonotoneSpline(
         }
     }
 
-    /** Curve through points `from..=to`. */
-    fun path(from: Int, to: Int): Path {
-        val path = Path()
-        if (n == 0 || from !in 0 until n || to !in 0 until n || from > to) return path
-        path.moveTo(px[from].toFloat(), py[from].toFloat())
+    /** Points of the curve through `from..=to`, [perSegment] samples per data segment. */
+    fun sample(from: Int, to: Int, perSegment: Int, into: MutableList<ScenePoint> = ArrayList()) {
+        if (n == 0 || from !in 0 until n || to !in 0 until n || from > to) return
+        into += ScenePoint(px[from].toFloat(), py[from].toFloat())
         for (i in from until to) {
             val h = dx[i]
-            path.cubicTo(
-                (px[i] + h / 3.0).toFloat(), (py[i] + tangents[i] * h / 3.0).toFloat(),
-                (px[i + 1] - h / 3.0).toFloat(), (py[i + 1] - tangents[i + 1] * h / 3.0).toFloat(),
-                px[i + 1].toFloat(), py[i + 1].toFloat(),
-            )
+            // Control points of the equivalent cubic Bézier for this segment.
+            val c1x = px[i] + h / 3.0
+            val c1y = py[i] + tangents[i] * h / 3.0
+            val c2x = px[i + 1] - h / 3.0
+            val c2y = py[i + 1] - tangents[i + 1] * h / 3.0
+            for (s in 1..perSegment) {
+                val t = s.toDouble() / perSegment
+                val mt = 1.0 - t
+                val a = mt * mt * mt
+                val b = 3.0 * mt * mt * t
+                val c = 3.0 * mt * t * t
+                val d = t * t * t
+                into += ScenePoint(
+                    x = (a * px[i] + b * c1x + c * c2x + d * px[i + 1]).toFloat(),
+                    y = (a * py[i] + b * c1y + c * c2y + d * py[i + 1]).toFloat(),
+                )
+            }
         }
-        return path
-    }
-
-    /** Points `from..=to` closed down to [baseline] — the filled area under the line. */
-    fun areaPath(from: Int, to: Int, baseline: Float): Path {
-        val path = path(from, to)
-        if (path.isEmpty) return path
-        path.lineTo(px[to].toFloat(), baseline)
-        path.lineTo(px[from].toFloat(), baseline)
-        path.close()
-        return path
     }
 
     companion object {
-        fun of(values: List<ChartValue>, x: Mapper, y: Mapper): MonotoneSpline = MonotoneSpline(
+        fun of(values: List<ChartValue>, x: SceneMapper, y: SceneMapper): MonotoneSpline = MonotoneSpline(
             px = DoubleArray(values.size) { x(values[it].index.toDouble()).toDouble() },
             py = DoubleArray(values.size) { y(values[it].price).toDouble() },
         )
@@ -143,11 +144,4 @@ private fun niceNumber(range: Double, roundDown: Boolean): Double {
         }
     }
     return nice * 10.0.pow(exponent)
-}
-
-/** Dot size shrinks as intervals get denser, so 15-minute data still reads as a line. */
-internal fun levelDotSizeDp(count: Int): Int = when {
-    count > 48 -> 4
-    count > 20 -> 6
-    else -> 9
 }

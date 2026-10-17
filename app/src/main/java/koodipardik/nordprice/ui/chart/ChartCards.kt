@@ -34,6 +34,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import koodipardik.nordprice.R
@@ -48,9 +50,8 @@ import koodipardik.nordprice.ui.components.unitLabel
 import koodipardik.nordprice.ui.theme.AppTheme
 
 /**
- * The chart card of the today / tomorrow screens: a header that shows either the day or the
- * value under the finger, the chart itself, and the four-level legend.
- * Mirrors the iOS `ChartView`.
+ * The chart card of the today / tomorrow screens: a header that shows either the day or the value
+ * under the finger, the chart, and the four-level legend. Mirrors the iOS `ChartView`.
  */
 @Composable
 fun PriceChartCard(
@@ -63,29 +64,11 @@ fun PriceChartCard(
     title: String,
     onToggleChartType: () -> Unit,
     modifier: Modifier = Modifier,
-    minHeight: androidx.compose.ui.unit.Dp = 220.dp,
+    minHeight: Dp = 220.dp,
 ) {
     var selected by remember { mutableStateOf<Int?>(null) }
     val colors = AppTheme
     val selectedEntry = selected?.let { index -> values.firstOrNull { it.index == index } }
-    val nowIndex = values.indexOfFirst { it.isCurrent }.takeIf { it >= 0 }
-
-    val prices = values.map { it.price }
-    val rawMin = prices.minOrNull() ?: 0.0
-    val rawMax = prices.maxOrNull() ?: 1.0
-    val yMin = minOf(rawMin, 0.0)
-    val yMax = maxOf(rawMax, 0.01) + (maxOf(rawMax, 0.01) - yMin) * 0.1
-
-    val count = values.size
-    // Bars live on integer slots; half a slot of padding at each end keeps the first and last
-    // bar from being cut in half by the plot edge (Swift Charts gets this from its band scale).
-    val xStart = -0.5
-    val xEnd = (count - 1) + 0.5
-
-    val xTicks = remember(count) {
-        if (count <= 1) listOf(0)
-        else listOf(0, 6, 12, 18).map { ((it.toDouble() * count / 24.0)).toInt().coerceIn(0, count - 1) }
-    }
 
     Column(
         modifier = modifier
@@ -94,45 +77,14 @@ fun PriceChartCard(
             .appCard(cornerRadius = 14.dp)
             .padding(bottom = 6.dp),
     ) {
-        // ---- Header ----
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(start = 16.dp, end = 8.dp, top = 12.dp, bottom = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            if (selectedEntry != null) {
-                Text(
-                    text = "${PriceFormat.format(selectedEntry.price, unit)} ${unitLabel(unit)}",
-                    fontSize = 17.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = colors.cardText,
-                    modifier = Modifier.weight(1f),
-                    maxLines = 1,
-                )
-                Text(
-                    text = selectedEntry.label,
-                    fontSize = 17.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = colors.cardText,
-                    modifier = Modifier.weight(1f),
-                    textAlign = androidx.compose.ui.text.style.TextAlign.End,
-                    maxLines = 1,
-                )
-            } else {
-                Text(
-                    text = title,
-                    fontSize = 17.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = colors.cardText,
-                    modifier = Modifier.weight(1f),
-                    maxLines = 1,
-                )
-            }
-            ChartTypeToggle(chartType = chartType, onToggle = onToggleChartType)
-        }
+        ChartHeader(
+            title = title,
+            selectedValue = selectedEntry?.let { "${PriceFormat.format(it.price, unit)} ${unitLabel(unit)}" },
+            selectedLabel = selectedEntry?.label,
+            chartType = chartType,
+            onToggleChartType = onToggleChartType,
+        )
 
-        // ---- Chart ----
         Box(
             modifier = Modifier
                 .weight(1f)
@@ -147,30 +99,12 @@ fun PriceChartCard(
             } else {
                 ChartCanvas(
                     values = values,
-                    chartType = chartType,
-                    colorful = colorful,
-                    xStart = xStart,
-                    xEnd = xEnd,
-                    yMin = yMin,
-                    yMax = yMax,
-                    xTicks = xTicks,
-                    xTickLabel = { tick ->
-                        // The day chart labels whole hours: "00", "06", "12", "18".
-                        "%02d".format((tick * 24.0 / count).toInt().coerceIn(0, 23))
+                    style = ChartStyles.day(colors, chartType, colorful, resolution) {
+                        PriceFormat.axisLabel(it, unit)
                     },
-                    yLabel = { PriceFormat.axisLabel(it, unit) },
                     selected = selected,
                     onSelection = { selected = it },
-                    showZeroRule = rawMin < 0,
-                    nowIndex = nowIndex,
                     nowBadge = stringResource(R.string.label_now),
-                    // iOS gives the 15-minute chart hairline bars (2 dp, 4 dp for the current
-                    // interval) and lets the hourly one take its share of the slot.
-                    barWidth = if (resolution == ChartResolution.FIFTEEN_MINUTES) {
-                        BarWidthSpec.Fixed(normal = 2.dp, current = 4.dp)
-                    } else {
-                        BarWidthSpec.Ratio(ratio = 0.62f, corner = 0.dp)
-                    },
                     modifier = Modifier.fillMaxSize(),
                 )
             }
@@ -184,21 +118,66 @@ fun PriceChartCard(
     }
 }
 
+/** Title or selected readout on the left, the bar ↔ line toggle on the right. */
 @Composable
-private fun ChartTypeToggle(chartType: ChartType, onToggle: () -> Unit) {
-    val description = stringResource(
+internal fun ChartHeader(
+    title: String?,
+    selectedValue: String?,
+    selectedLabel: String?,
+    chartType: ChartType,
+    onToggleChartType: () -> Unit,
+) {
+    val color = AppTheme.cardText
+    val toggleLabel = stringResource(
         if (chartType == ChartType.BAR) R.string.a11y_show_line_chart else R.string.a11y_show_bar_chart,
     )
-    IconButton(
-        onClick = onToggle,
-        modifier = Modifier.size(44.dp).semantics { contentDescription = description },
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 16.dp, end = 8.dp, top = 12.dp, bottom = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(
-            imageVector = if (chartType == ChartType.BAR) Icons.Filled.BarChart else Icons.Filled.ShowChart,
-            contentDescription = null,
-            tint = AppTheme.cardText,
-            modifier = Modifier.size(22.dp),
-        )
+        if (selectedValue != null && selectedLabel != null) {
+            Text(
+                text = selectedValue,
+                fontSize = 17.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = color,
+                modifier = Modifier.weight(1f),
+                maxLines = 1,
+            )
+            Text(
+                text = selectedLabel,
+                fontSize = 17.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = color,
+                modifier = Modifier.weight(1f),
+                textAlign = TextAlign.End,
+                maxLines = 1,
+            )
+        } else {
+            Text(
+                text = title.orEmpty(),
+                fontSize = 17.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = color,
+                modifier = Modifier.weight(1f),
+                maxLines = 1,
+            )
+        }
+        IconButton(
+            onClick = onToggleChartType,
+            modifier = Modifier
+                .size(44.dp)
+                .semantics { contentDescription = toggleLabel },
+        ) {
+            Icon(
+                imageVector = if (chartType == ChartType.BAR) Icons.Filled.BarChart else Icons.Filled.ShowChart,
+                contentDescription = null,
+                tint = color,
+                modifier = Modifier.size(22.dp),
+            )
+        }
     }
 }
 
@@ -220,9 +199,7 @@ fun LevelLegend(modifier: Modifier = Modifier) {
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            levels.forEach { level ->
-                LegendItem(level, Modifier.padding(horizontal = 6.dp))
-            }
+            levels.forEach { level -> LegendItem(level, Modifier.padding(horizontal = 6.dp)) }
         }
     }
 }

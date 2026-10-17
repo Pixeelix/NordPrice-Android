@@ -23,6 +23,7 @@ import androidx.compose.material.icons.filled.BubbleChart
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.ColorLens
 import androidx.compose.material.icons.filled.Flag
+import androidx.compose.material.icons.filled.GridOn
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.NotificationsActive
@@ -70,6 +71,7 @@ import koodipardik.nordprice.ui.components.unitLabel
 import koodipardik.nordprice.ui.rememberContainer
 import koodipardik.nordprice.ui.rememberSettings
 import koodipardik.nordprice.ui.theme.AppTheme
+import koodipardik.nordprice.widget.WidgetPreviewSheet
 
 /**
  * Settings, ported from the iOS `Form`: the same sections, rows, icons and footers. The iOS
@@ -85,6 +87,7 @@ fun SettingsScreen() {
     var unitSheet by remember { mutableStateOf(false) }
     var chartTypeSheet by remember { mutableStateOf(false) }
     var resolutionSheet by remember { mutableStateOf(false) }
+    var showWidgetPreview by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
@@ -185,6 +188,14 @@ fun SettingsScreen() {
                     checked = settings.useSampleData,
                     onChange = container.settings::setUseSampleData,
                 )
+                Divider()
+                OptionRow(
+                    icon = Icons.Filled.GridOn,
+                    tint = Color(0xFF8B5CF6),
+                    label = stringResource(R.string.title_widget_preview),
+                    value = "",
+                    onClick = { showWidgetPreview = true },
+                )
             }
         }
 
@@ -238,6 +249,10 @@ fun SettingsScreen() {
 
         // Phase 2: the AdMob banner slot and the UMP "Privacy options" entry live here.
         Spacer(Modifier.height(16.dp))
+    }
+
+    if (showWidgetPreview) {
+        WidgetPreviewSheet(onDismiss = { showWidgetPreview = false })
     }
 
     if (languageSheet) {

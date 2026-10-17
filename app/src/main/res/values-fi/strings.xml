@@ -88,4 +88,6 @@
     <string name="unit_eur_kwh">€/kWh</string>
     <string name="unit_eur_mwh">€/MWh</string>
     <string name="debug_sample_data">Näytedata</string>
+    <string name="hint_widget_preview_chart_only">Vain kaavion piirtää widgetin oma piirtäjä; yllä oleva tekst on Glance-asettelun korvike.</string>
+    <string name="title_widget_preview">Widgetin esikatselu</string>
 </resources>

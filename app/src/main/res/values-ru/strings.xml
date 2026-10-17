@@ -88,4 +88,6 @@
     <string name="unit_eur_kwh">€/kWh</string>
     <string name="unit_eur_mwh">€/MWh</string>
     <string name="debug_sample_data">Тестовые данные</string>
+    <string name="hint_widget_preview_chart_only">Только график рисует собственный рендер виджета; текст выше — замена макету Glance.</string>
+    <string name="title_widget_preview">Предпросмотр виджета</string>
 </resources>

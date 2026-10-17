@@ -88,4 +88,6 @@
     <string name="unit_eur_kwh">€/kWh</string>
     <string name="unit_eur_mwh">€/MWh</string>
     <string name="debug_sample_data">Näidisandmed</string>
+    <string name="hint_widget_preview_chart_only">Ainult graafiku joonistab widgeti oma renderdaja; tekst üleval on Glance’i paigenduse asemen.</string>
+    <string name="title_widget_preview">Widgeti eelvaade</string>
 </resources>

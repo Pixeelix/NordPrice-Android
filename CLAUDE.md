@@ -32,12 +32,14 @@ app/src/main/java/koodipardik/nordprice/
   settings/    AppSettings — one DataStore-backed StateFlow<Settings>
   ui/
     theme/     Color.kt holds both palettes verbatim from the iOS asset catalog
-    chart/     ChartCanvas.kt (hand-drawn Swift Charts replacement), ChartCards.kt, MonotoneSpline.kt
+    chart/     ChartScene.kt (shared geometry + rules), ChartCanvas.kt (Compose renderer),
+               ChartStyles.kt (day / history / widget variants), ChartCards.kt, MonotoneSpline.kt
     components/ cards, flags, hero price card, sheets, connection-lost screen
     price/     PriceScreen + ChartViewModel + CurrentPriceViewModel
     history/   HistoryScreen + HistoryViewModel
     settings/  SettingsScreen
-```
+  widget/      Glance widget: NordPriceWidget, WidgetSnapshotBuilder (pure), WidgetChartRenderer
+               (scene → Bitmap), WidgetRefresh (WorkManager), WidgetPreview (debug)
 
 `AppContainer` (composition root) is created in `NordPriceApplication` and reaches composables
 through `LocalContainer`; the current `Settings` through `LocalSettings`. Four long-lived
@@ -69,5 +71,9 @@ collaborators — that is the whole DI story, keep it that way.
   `fcmToken`, and FCM is the native transport on Android. `POST_NOTIFICATIONS` (API 33+) has to be
   requested before a threshold toggle turns on. Registering the Android app in the Firebase console
   (with the debug and release signing SHA-1) is a manual step.
-* The Glance widget replaces the App Group used on iOS: the widget's receiver runs in this same
-  process, so it can read the `filesDir/price_cache` files directly.
+* Glance widgets are done — see `widget/`. Widget updates come from `WidgetRefresh` (a 15-minute
+  worker plus pushes on cache and setting changes); hook new refresh reasons there rather than
+  adding receivers.
+* Phase 2 (AdMob, Firebase) is in progress on the user's side; the reserved seams are the banner
+  slot at the bottom of `PriceScreen`, `AppSettings.onSettingsChanged`, and `google-services.json`
+  in `app/` (gitignored).

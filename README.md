@@ -37,6 +37,7 @@ bundle id covers both configurations.
 | Tomorrow | `TomorrowView` | `PriceScreen(Day.TOMORROW)` — min–max range, chart, "from 15:00" state |
 | History | `HistoryView` | `HistoryScreen` — week/month/year, period average, cheapest/dearest, chart |
 | Settings | `SettingsView` | `SettingsScreen` — same sections, rows and icons |
+| Widget | `NordPriceWidgetExtension` (small + medium) | `NordPriceWidget` (Glance), one resizable provider that adapts to its cell span |
 | iPad | `DashboardView` | not ported yet; the phone layout fills the width on tablets |
 
 Core rules carried over unchanged: `€/MWh` → unit conversion (÷1000, ÷1, ÷10) with a comma decimal
@@ -65,9 +66,31 @@ Data comes from `https://dashboard.elering.ee/api/nps/price` (Elering), on plain
 * **Sparse API answers.** The iOS decoder requires all four markets to be present; Elering answers
   with `null` for a market with no data, so every list is optional here.
 
-Not ported yet, in this order: AdMob banners and UMP consent, Firebase Analytics, threshold
-notifications (FCM + the existing `syncNotificationDevice` Cloud Function), Glance home-screen
-widgets, and the iPad-style side-by-side layout.
+Not ported yet: AdMob banners and UMP consent, Firebase Analytics, threshold notifications (FCM +
+the existing `syncNotificationDevice` Cloud Function), and the iPad-style side-by-side layout.
+
+## Widget
+
+One Glance provider (`NordPriceWidgetReceiver`) rather than two `systemSmall`/`systemMedium`
+families: an Android widget is resizable, so `LocalSize` picks the medium treatment above ~250 dp
+and the small one below. Same content as the iOS widget — "Current price", the interval time, the
+price with its unit, and the day's curve.
+
+Differences worth knowing:
+
+* **No App Group.** The widget's receiver runs in the app's own process and reads the same price
+  cache and `AppSettings` the app writes. iOS had to mirror every setting into shared defaults.
+* **No timeline.** WidgetKit can walk a pre-computed entry list forward by itself; a RemoteViews
+  widget only changes when something updates it. `WidgetRefresh` runs a 15-minute periodic worker
+  and pushes an immediate update when a complete day lands in the cache or a relevant setting
+  changes. A day/night switch therefore shows up on the next update rather than instantly.
+* **The curve is a bitmap.** Everything in the chart, including its axis labels, is painted into one
+  image by `WidgetChartRenderer`; Glance has no positioned text inside a widget. It paints the same
+  `ChartScene` the app renders live, which is what keeps the two in step — see below.
+* **The iOS widget ignores the "colourful chart" switch**, so this one does too.
+
+Settings › DEBUG › *Widget preview* (debug builds) renders the widget's own snapshot, chart style
+and bitmap painter at both sizes inside the app.
 
 ## Tests
 
@@ -76,7 +99,17 @@ widgets, and the iPad-style side-by-side layout.
 (`app/src/test/resources/elering_2026-10-17.json`) through a loopback HTTP stub — request window
 format, gzip, all four markets, the `null`-market case and non-200 handling. `CoreRulesTest` covers
 the day-completeness rule (including a 25-hour DST Sunday), hourly averaging, UTC day intervals,
-unit dividers and decimals, price levels and VAT rates.
+unit dividers and decimals, price levels and VAT rates. `WidgetSnapshotTest` covers what the widget
+decides to show — interval selection, hourly averaging, VAT applied to the price but not to the bar
+colour, and the empty-data case.
+
+## Chart scene
+
+`ui/chart/ChartScene.kt` computes the chart's geometry, colours, ticks and labels once; the app
+paints the result with Compose (`ChartCanvas`) and the widget paints it into a bitmap
+(`WidgetChartRenderer`). The iOS app keeps the chart logic twice — once in the app target, once in
+the extension — and its own comments describe what happens when the two copies drift. Differences
+between the two charts here are data (`ChartStyles.day` vs `.widget`), not a second implementation.
 
 **Note on testing against the live API:** on a corporate network with a TLS forward proxy, every
 HTTPS connection is re-signed by an internal root CA. macOS trusts it (login keychain), a clean

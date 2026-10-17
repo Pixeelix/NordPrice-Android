@@ -88,4 +88,6 @@
     <string name="unit_eur_kwh">€/kWh</string>
     <string name="unit_eur_mwh">€/MWh</string>
     <string name="debug_sample_data">Sample data (debug)</string>
+    <string name="hint_widget_preview_chart_only">Only the chart is drawn by the widget’s own renderer; the text above is a stand-in for the Glance layout.</string>
+    <string name="title_widget_preview">Widget preview</string>
 </resources>

@@ -6,6 +6,7 @@ import koodipardik.nordprice.data.NetworkMonitor
 import koodipardik.nordprice.data.PriceRepository
 import koodipardik.nordprice.data.SampleData
 import koodipardik.nordprice.settings.AppSettings
+import koodipardik.nordprice.widget.WidgetRefresh
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -26,7 +27,10 @@ class AppContainer(context: Context) {
     val historyRepository: HistoryRepository = HistoryRepository(context)
 
     init {
-        priceRepository.onCompleteDaySaved = { /* Phase 3: reload the Glance widget timeline. */ }
+        // A complete day is new data the widget can use; settings changes change how it is drawn.
+        priceRepository.onCompleteDaySaved = { WidgetRefresh.refresh(context) }
+        settings.onWidgetAffectingChange = { WidgetRefresh.refresh(context) }
+        WidgetRefresh.schedule(context)
         scope.launch {
             // Only debug builds may serve fake prices; a release can never flip this, as on iOS.
             settings.state.collect { SampleData.enabled = BuildConfig.DEBUG && it.useSampleData }

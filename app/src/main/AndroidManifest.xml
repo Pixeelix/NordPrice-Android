@@ -24,6 +24,18 @@
             </intent-filter>
         </activity>
 
+        <receiver
+            android:name=".widget.NordPriceWidgetReceiver"
+            android:exported="true"
+            android:label="@string/app_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/nordprice_widget_info" />
+        </receiver>
+
         <!--
           Stores the in-app language on Android 12 and below, where the system has no per-app
           locales. On Android 13+ the platform keeps it and this service stays disabled.

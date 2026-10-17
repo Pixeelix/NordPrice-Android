@@ -51,14 +51,15 @@ import koodipardik.nordprice.R
 import koodipardik.nordprice.core.ChartType
 import koodipardik.nordprice.core.PriceFormat
 import koodipardik.nordprice.ui.barDate
-import koodipardik.nordprice.ui.chart.BarWidthSpec
 import koodipardik.nordprice.ui.chart.ChartCanvas
 import koodipardik.nordprice.ui.chart.ChartValue
+import koodipardik.nordprice.ui.chart.ChartStyles
 import koodipardik.nordprice.ui.chart.LevelLegend
 import koodipardik.nordprice.ui.components.CardHorizontalInset
 import koodipardik.nordprice.ui.components.HeroPriceCard
 import koodipardik.nordprice.ui.components.HistoryMinMaxCard
 import koodipardik.nordprice.ui.components.ScreenTitle
+import koodipardik.nordprice.ui.chart.ChartHeader
 import koodipardik.nordprice.ui.components.appCard
 import koodipardik.nordprice.ui.components.unitLabel
 import koodipardik.nordprice.ui.periodTitle
@@ -333,10 +334,6 @@ private fun HistoryChart(
         }.toMap()
     }
 
-    val prices = values.map { it.price }
-    val yMin = minOf(prices.minOrNull() ?: 0.0, 0.0)
-    val yMaxBase = max(prices.maxOrNull() ?: 1.0, 0.01)
-    val yMax = yMaxBase + (yMaxBase - yMin) * 0.1
     val average = state.averageRawMWh?.let(displayPrice)
 
     Column(
@@ -346,65 +343,18 @@ private fun HistoryChart(
             .padding(bottom = 6.dp),
     ) {
         val selectedBar = selected?.let { index -> priced.firstOrNull { it.index == index } }
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(start = 16.dp, end = 8.dp, top = 12.dp, bottom = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            if (selectedBar != null) {
-                Text(
-                    text = "${displayPriceText(selectedBar.rawPriceMWh, settings)} ${unitLabel(settings.unit)}",
-                    fontSize = 17.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = AppTheme.cardText,
-                    modifier = Modifier.weight(1f),
-                    maxLines = 1,
-                )
-                Text(
-                    text = barDate(selectedBar.start, state.period),
-                    fontSize = 17.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = AppTheme.cardText,
-                    modifier = Modifier.weight(1f),
-                    textAlign = TextAlign.End,
-                    maxLines = 1,
-                )
-            } else {
-                Text(
-                    text = stringResource(
-                        if (state.period == HistoryPeriod.YEAR) {
-                            R.string.title_monthly_average
-                        } else {
-                            R.string.title_daily_average
-                        },
-                    ),
-                    fontSize = 17.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = AppTheme.cardText,
-                    modifier = Modifier.weight(1f),
-                    maxLines = 1,
-                )
-            }
-            IconButton(onClick = onToggleChartType, modifier = Modifier.size(44.dp)) {
-                Icon(
-                    imageVector = if (settings.chartType == ChartType.BAR) {
-                        Icons.Filled.ShowChart
-                    } else {
-                        Icons.Filled.BarChart
-                    },
-                    contentDescription = stringResource(
-                        if (settings.chartType == ChartType.BAR) {
-                            R.string.a11y_show_line_chart
-                        } else {
-                            R.string.a11y_show_bar_chart
-                        },
-                    ),
-                    tint = AppTheme.cardText,
-                    modifier = Modifier.size(22.dp),
-                )
-            }
-        }
+        ChartHeader(
+            title = stringResource(
+                if (state.period == HistoryPeriod.YEAR) R.string.title_monthly_average
+                else R.string.title_daily_average,
+            ),
+            selectedValue = selectedBar?.rawPriceMWh?.let {
+                "${displayPriceText(it, settings)} ${unitLabel(settings.unit)}"
+            },
+            selectedLabel = selectedBar?.let { barDate(it.start, state.period) },
+            chartType = settings.chartType,
+            onToggleChartType = onToggleChartType,
+        )
 
         Box(
             modifier = Modifier
@@ -426,20 +376,17 @@ private fun HistoryChart(
 
                 else -> ChartCanvas(
                     values = values,
-                    chartType = settings.chartType,
-                    colorful = settings.colorfulChart,
-                    xStart = -0.5,
-                    xEnd = (count - 1) + 0.5,
-                    yMin = yMin,
-                    yMax = yMax,
-                    xTicks = tickIndices,
-                    xTickLabel = { index -> axisLabels[index] ?: "" },
-                    yLabel = { PriceFormat.axisLabel(it, settings.unit) },
+                    style = ChartStyles.history(
+                        colors = AppTheme,
+                        chartType = settings.chartType,
+                        colorful = settings.colorfulChart,
+                        barCount = count,
+                        yLabel = { PriceFormat.axisLabel(it, settings.unit) },
+                        xLabel = { index -> axisLabels[index] ?: "" },
+                    ),
                     selected = selected,
                     onSelection = { selected = it },
-                    averageRule = average,
-                    showZeroRule = yMin < 0,
-                    barWidth = BarWidthSpec.Ratio(0.7f, if (count > 20) 1.5.dp else 3.dp),
+                    averageLine = average,
                     modifier = Modifier.fillMaxSize(),
                 )
             }

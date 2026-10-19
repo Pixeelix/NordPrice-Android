@@ -26,6 +26,8 @@ import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
@@ -151,24 +153,33 @@ private fun HistoryCards(
     settings: com.koodipardik.nordprice.settings.Settings,
     viewModel: HistoryViewModel,
 ) {
-    AverageCard(
-        state = state,
-        onBack = viewModel::goBack,
-        onForward = viewModel::goForward,
-        onPickDate = { viewModel.select(it) },
-    )
-    HistoryMinMaxCard(
-        cheapestLabel = stringResource(R.string.title_min),
-        cheapestValue = displayPrice(state.cheapest?.rawPriceMWh, settings),
-        cheapestDate = state.cheapest?.let { shortBarDate(it.start, state.period) } ?: " ",
-        expensiveLabel = stringResource(R.string.title_max),
-        expensiveValue = displayPrice(state.mostExpensive?.rawPriceMWh, settings),
-        expensiveDate = state.mostExpensive?.let { shortBarDate(it.start, state.period) } ?: " ",
-        showLevelDots = settings.colorfulChart,
-        cheapestDot = state.cheapest?.level?.let { Color(it.colorHex) },
-        expensiveDot = state.mostExpensive?.level?.let { Color(it.colorHex) },
-    )
-    PeriodPicker(period = state.period, onSelect = viewModel::setPeriod)
+    // The three cards used to sit flush: the phone layout spaces only what is *below* this group and
+    // the tablet column spaces only the title above it, so nothing ever separated these siblings.
+    // 12 dp is the rhythm every other card stack in the app uses (PriceScreen's phone and tablet
+    // columns), and these cards carry a 1 dp border, where touching reads as one box.
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        AverageCard(
+            state = state,
+            onBack = viewModel::goBack,
+            onForward = viewModel::goForward,
+            onPickDate = { viewModel.select(it) },
+        )
+        HistoryMinMaxCard(
+            cheapestLabel = stringResource(R.string.title_min),
+            cheapestValue = displayPrice(state.cheapest?.rawPriceMWh, settings),
+            cheapestDate = state.cheapest?.let { shortBarDate(it.start, state.period) } ?: " ",
+            expensiveLabel = stringResource(R.string.title_max),
+            expensiveValue = displayPrice(state.mostExpensive?.rawPriceMWh, settings),
+            expensiveDate = state.mostExpensive?.let { shortBarDate(it.start, state.period) } ?: " ",
+            showLevelDots = settings.colorfulChart,
+            cheapestDot = state.cheapest?.level?.let { Color(it.colorHex) },
+            expensiveDot = state.mostExpensive?.level?.let { Color(it.colorHex) },
+        )
+        PeriodPicker(period = state.period, onSelect = viewModel::setPeriod)
+    }
 }
 
 @Composable
@@ -311,20 +322,48 @@ private fun PeriodDatePicker(initial: LocalDate, onDismiss: () -> Unit, onPicked
     }
 }
 
+/**
+ * Week / month / year.
+ *
+ * The Material 3 control defaults to `MaterialTheme` colours, which are the Compose baseline palette
+ * and not this app's iOS one — so the unselected segments read as a washed-out grey box that matches
+ * nothing on the screen. Every colour below is an [AppTheme] token instead, which puts the control in
+ * the same family as the two cards above it: same fill, same hairline, and the selected segment in
+ * brand blue with white text, the way the app marks a choice everywhere else.
+ *
+ * Corner radius 12 dp is deliberately one notch tighter than the cards' 14 dp: the segments sit inside
+ * each other, so a shared radius would make the row look like a fourth card rather than a control.
+ */
 @Composable
 private fun PeriodPicker(period: HistoryPeriod, onSelect: (HistoryPeriod) -> Unit) {
     SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
         HistoryPeriod.ordered.forEachIndexed { index, option ->
+            val selected = period == option
             SegmentedButton(
-                selected = period == option,
+                selected = selected,
                 onClick = { onSelect(option) },
-                shape = SegmentedButtonDefaults.itemShape(index, HistoryPeriod.ordered.size),
+                shape = SegmentedButtonDefaults.itemShape(
+                    index = index,
+                    count = HistoryPeriod.ordered.size,
+                    baseShape = RoundedCornerShape(12.dp),
+                ),
+                colors = SegmentedButtonDefaults.colors(
+                    activeContainerColor = AppTheme.brand,
+                    activeContentColor = Color.White,
+                    inactiveContainerColor = AppTheme.card,
+                    inactiveContentColor = AppTheme.secondaryText,
+                ),
+                border = BorderStroke(1.dp, AppTheme.cardStroke),
                 icon = {},
                 label = {
                     Text(
                         text = stringResource(option.labelRes),
-                        fontSize = 14.sp,
+                        fontSize = 15.sp,
+                        // Weight, not just colour, carries the state — the palette alone is too subtle
+                        // for three options that look this similar at a glance.
+                        fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
                         textAlign = TextAlign.Center,
+                        maxLines = 1,
                     )
                 },
             )

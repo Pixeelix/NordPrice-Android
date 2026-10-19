@@ -35,6 +35,8 @@ import com.koodipardik.nordprice.core.Region
 import com.koodipardik.nordprice.data.PriceRepository
 import com.koodipardik.nordprice.settings.Settings
 import com.koodipardik.nordprice.ui.TabletSideColumnWidth
+import com.koodipardik.nordprice.ui.ads.AdPlacement
+import com.koodipardik.nordprice.ui.ads.AnchorBanner
 import com.koodipardik.nordprice.ui.components.CardHorizontalInset
 import com.koodipardik.nordprice.ui.components.HeroPriceCard
 import com.koodipardik.nordprice.ui.components.MinAvgMaxCard
@@ -86,11 +88,22 @@ fun PriceScreen(day: Day) {
             DayChart(day, chartState, settings, Modifier.fillMaxWidth().weight(1f))
         }
 
-        // Phase 2: the AdMob anchor banner slot goes here.
+        AnchorBanner(priceBannerPlacement(day, chartState.missingData))
         Spacer(Modifier.height(8.dp))
     }
 
     RegionPicker(showRegionPicker) { showRegionPicker = false }
+}
+
+/**
+ * Which banner unit this price screen asks for. iOS uses two different Tomorrow units depending on
+ * whether the day-ahead auction has published yet (`TomorrowView.swift:57` and `:76`), and one for
+ * Today; the tablet dashboard shares Today's.
+ */
+private fun priceBannerPlacement(day: Day, missingTomorrowData: Boolean): AdPlacement = when {
+    day != Day.TOMORROW -> AdPlacement.TODAY
+    missingTomorrowData -> AdPlacement.TOMORROW_PENDING
+    else -> AdPlacement.TOMORROW_READY
 }
 
 /**
@@ -146,7 +159,9 @@ fun PriceDashboard() {
             },
         )
 
-        // Phase 2: the AdMob anchor banner slot goes here.
+        // One banner serves the whole dashboard, as in iOS DashboardView.swift:48 — which is why it
+        // asks for today's unit even though tomorrow shares the screen.
+        AnchorBanner(AdPlacement.TODAY)
     }
 
     RegionPicker(showRegionPicker) { showRegionPicker = false }

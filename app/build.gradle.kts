@@ -100,5 +100,10 @@ dependencies {
     implementation(libs.firebase.functions)
     implementation(libs.firebase.auth)
 
+    // Phase 2, second half. UMP is separate from the ads SDK, as on iOS, because consent has to be
+    // resolved before MobileAds.initialize — see ui/ads/ConsentManager.kt.
+    implementation(libs.play.services.ads)
+    implementation(libs.user.messaging.platform)
+
     testImplementation(libs.junit)
 }

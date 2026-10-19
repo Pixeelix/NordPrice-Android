@@ -5,6 +5,7 @@ import androidx.activity.compose.setContent
 import androidx.appcompat.app.AppCompatActivity
 import com.koodipardik.nordprice.ui.AppProviders
 import com.koodipardik.nordprice.ui.NordPriceRoot
+import com.koodipardik.nordprice.ui.ads.ConsentManager
 import com.koodipardik.nordprice.ui.theme.NordPriceTheme
 
 /**
@@ -15,6 +16,14 @@ import com.koodipardik.nordprice.ui.theme.NordPriceTheme
  * backported by AppCompat and requires its activity base class.
  */
 class MainActivity : AppCompatActivity() {
+
+    override fun onResume() {
+        super.onResume()
+        // UMP can only present its form while the app is active, so consent is gathered here rather
+        // than in Application.onCreate. iOS makes the same call from onAppear plus
+        // didBecomeActiveNotification (NordPriceApp.swift:101-107), which on Android is one onResume.
+        ConsentManager.gatherConsent(this)
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

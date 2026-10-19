@@ -3,6 +3,7 @@ package com.koodipardik.nordprice.ui.settings
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
+import androidx.activity.compose.LocalActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -33,6 +34,7 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.Percent
+import androidx.compose.material.icons.filled.PrivacyTip
 import androidx.compose.material.icons.filled.Science
 import androidx.compose.material.icons.filled.SettingsBrightness
 import androidx.compose.material.icons.filled.Speed
@@ -48,6 +50,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
@@ -76,6 +79,9 @@ import com.koodipardik.nordprice.core.Region
 import com.koodipardik.nordprice.notifications.NotificationSync
 import com.koodipardik.nordprice.settings.AppSettings
 import com.koodipardik.nordprice.settings.Settings
+import com.koodipardik.nordprice.ui.ads.AdPlacement
+import com.koodipardik.nordprice.ui.ads.AnchorBanner
+import com.koodipardik.nordprice.ui.ads.ConsentManager
 import com.koodipardik.nordprice.ui.components.CardHorizontalInset
 import com.koodipardik.nordprice.ui.components.appCard
 import com.koodipardik.nordprice.ui.components.unitLabel
@@ -246,8 +252,23 @@ fun SettingsScreen() {
             Footnote(stringResource(R.string.text_information_about_market_time_unit))
         }
 
-        // Phase 2: the AdMob banner slot and the UMP "Privacy options" entry live here.
+        // Only offered where GDPR says a user must be able to revisit their choices — iOS shows the
+        // same row on `consent.privacyOptionsRequired` (SettingsView.swift:258), never unconditionally.
+        val activity = LocalActivity.current
+        val privacyOptionsRequired by ConsentManager.privacyOptionsRequired.collectAsState()
+        if (privacyOptionsRequired && activity != null) {
+            Divider()
+            OptionRow(
+                icon = Icons.Filled.PrivacyTip,
+                tint = Color(0xFF3B82F6),
+                label = stringResource(R.string.label_privacy_options),
+                value = "",
+                onClick = { ConsentManager.presentPrivacyOptions(activity) },
+            )
+        }
+
         Spacer(Modifier.height(16.dp))
+        AnchorBanner(AdPlacement.SETTINGS)
     }
 
     if (showWidgetPreview) {

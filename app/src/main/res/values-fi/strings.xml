@@ -42,6 +42,8 @@
     <string name="notif_body_min">Huomisen alin %1$s klo %2$s on alle rajasi (%3$s).</string>
     <string name="notif_title_max">Korkea sähkön hinta huomenna</string>
     <string name="notif_title_min">Matala sähkön hinta huomenna</string>
+    <string name="notification_channel_price_alerts">Hintahälytykset</string>
+    <string name="notification_channel_price_alerts_description">Ilmoitukset, kun huomisen hinta ylittää rajan tai jää sen alle</string>
     <string name="period_month">Kuukausi</string>
     <string name="period_week">Viikko</string>
     <string name="period_year">Vuosi</string>
@@ -88,6 +90,8 @@
     <string name="unit_eur_kwh">€/kWh</string>
     <string name="unit_eur_mwh">€/MWh</string>
     <string name="debug_sample_data">Näytedata</string>
+    <string name="debug_test_notification">Lähetä testilmoitus</string>
+    <string name="debug_test_notification_sent">Ilmoitus lähetetty</string>
     <string name="hint_widget_preview_chart_only">Vain kaavion piirtää widgetin oma piirtäjä; yllä oleva tekst on Glance-asettelun korvike.</string>
     <string name="title_widget_preview">Widgetin esikatselu</string>
 </resources>

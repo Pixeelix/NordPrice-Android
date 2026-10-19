@@ -42,6 +42,8 @@
     <string name="notif_body_min">Минимум завтра %1$s в %2$s ниже вашего порога (%3$s).</string>
     <string name="notif_title_max">Высокая цена на электричество завтра</string>
     <string name="notif_title_min">Низкая цена на электричество завтра</string>
+    <string name="notification_channel_price_alerts">Ценовые оповещения</string>
+    <string name="notification_channel_price_alerts_description">Уведомления, когда цена завтра пересекает установленный порог</string>
     <string name="period_month">Месяц</string>
     <string name="period_week">Неделя</string>
     <string name="period_year">Год</string>
@@ -88,6 +90,8 @@
     <string name="unit_eur_kwh">€/kWh</string>
     <string name="unit_eur_mwh">€/MWh</string>
     <string name="debug_sample_data">Тестовые данные</string>
+    <string name="debug_test_notification">Отправить тестовое уведомление</string>
+    <string name="debug_test_notification_sent">Уведомление отправлено</string>
     <string name="hint_widget_preview_chart_only">Только график рисует собственный рендер виджета; текст выше — замена макету Glance.</string>
     <string name="title_widget_preview">Предпросмотр виджета</string>
 </resources>

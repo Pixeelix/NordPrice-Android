@@ -3,6 +3,13 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!--
+      Asked at runtime (API 33+) at the moment a notification toggle is turned on, as iOS asks on
+      the same gesture. Declared here on purpose even though firebase-messaging merges in an
+      identical line: relying on a library's manifest merge for a permission the UI's behaviour
+      depends on means it disappears silently the day that dependency moves.
+    -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
         android:name=".NordPriceApplication"
@@ -35,6 +42,16 @@
                 android:name="android.appwidget.provider"
                 android:resource="@xml/nordprice_widget_info" />
         </receiver>
+
+        <!-- FCM delivery: onNewToken keeps the backend registration fresh, and this is the only
+             path that can show an alert while the app is in the foreground. -->
+        <service
+            android:name=".notifications.NordPriceMessagingService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
 
         <!--
           Stores the in-app language on Android 12 and below, where the system has no per-app

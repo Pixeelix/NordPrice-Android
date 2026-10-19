@@ -3,14 +3,25 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
+    // Reads app/google-services.json into generated resources + the merged manifest. Gitignored,
+    // so a fresh clone cannot build until it is dropped in — deliberate: a missing Firebase config
+    // should stop the build rather than resolve to the wrong project at runtime.
+    alias(libs.plugins.google.services)
 }
 
 android {
-    namespace = "koodipardik.nordprice"
+    // Kept identical to the applicationId below on purpose. AGP treats them as independent —
+    // this one is the code package (R class, manifest-relative names like
+    // `.NordPriceApplication`), that one the store identity — but the port originally ran the
+    // package without the `com.` prefix and the split bought nothing but a second spelling to
+    // keep in sync and a Google-services package_name mismatch waiting for whoever tripped on it.
+    namespace = "com.koodipardik.nordprice"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "koodipardik.nordprice"
+        // What Play Console, Firebase and AdMob know this app as. External services match on
+        // this value alone, and it is immutable once the app is published on Play.
+        applicationId = "com.koodipardik.nordprice"
         minSdk = 26
         targetSdk = 36
         versionCode = 1
@@ -81,6 +92,13 @@ dependencies {
 
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.kotlinx.coroutines.android)
+
+    // Notifications, ported from iOS NotificationService.swift: FCM token -> anonymous Auth ->
+    // the same syncNotificationDevice Callable Function the iOS app already registers with.
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.messaging)
+    implementation(libs.firebase.functions)
+    implementation(libs.firebase.auth)
 
     testImplementation(libs.junit)
 }

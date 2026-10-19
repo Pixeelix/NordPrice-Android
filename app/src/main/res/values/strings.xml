@@ -42,6 +42,8 @@
     <string name="notif_body_min">Tomorrow\'s low %1$s at %2$s is below your set limit (%3$s).</string>
     <string name="notif_title_max">High electricity price tomorrow</string>
     <string name="notif_title_min">Low electricity price tomorrow</string>
+    <string name="notification_channel_price_alerts">Price alerts</string>
+    <string name="notification_channel_price_alerts_description">Notifications when tomorrow\'s price crosses one of your limits</string>
     <string name="period_month">Month</string>
     <string name="period_week">Week</string>
     <string name="period_year">Year</string>
@@ -88,6 +90,8 @@
     <string name="unit_eur_kwh">€/kWh</string>
     <string name="unit_eur_mwh">€/MWh</string>
     <string name="debug_sample_data">Sample data (debug)</string>
+    <string name="debug_test_notification">Send test notification</string>
+    <string name="debug_test_notification_sent">Push sent</string>
     <string name="hint_widget_preview_chart_only">Only the chart is drawn by the widget’s own renderer; the text above is a stand-in for the Glance layout.</string>
     <string name="title_widget_preview">Widget preview</string>
 </resources>

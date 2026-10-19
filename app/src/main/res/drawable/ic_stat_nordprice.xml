@@ -1,0 +1,12 @@
+<!-- Notification status-bar icon: the same lightning bolt the Today tab uses, as a solid white
+     silhouette. Android tints this, so a coloured or detailed launcher icon would read as a blob. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24"
+    android:tint="#FFFFFF">
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M11,21h-1l1,-7L7.5,14c-0.55,0 -0.55,-0.45 -0.26,-0.89L12.5,2h1l-1,7h3.5c0.55,0 0.55,0.45 0.26,0.89L11,21z" />
+</vector>

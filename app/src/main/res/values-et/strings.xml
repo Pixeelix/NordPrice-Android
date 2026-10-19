@@ -42,6 +42,8 @@
     <string name="notif_body_min">Homne madalaim %1$s kell %2$s on alla su määratud piiri (%3$s).</string>
     <string name="notif_title_max">Homme on kõrge elektrihind</string>
     <string name="notif_title_min">Homme on madal elektrihind</string>
+    <string name="notification_channel_price_alerts">Hinnateavitused</string>
+    <string name="notification_channel_price_alerts_description">Teavitused, kui homne hind ületab või jääb alla määratud piiri</string>
     <string name="period_month">Kuu</string>
     <string name="period_week">Nädal</string>
     <string name="period_year">Aasta</string>
@@ -88,6 +90,8 @@
     <string name="unit_eur_kwh">€/kWh</string>
     <string name="unit_eur_mwh">€/MWh</string>
     <string name="debug_sample_data">Näidisandmed</string>
+    <string name="debug_test_notification">Saada testteavitus</string>
+    <string name="debug_test_notification_sent">Teavitus saadeti</string>
     <string name="hint_widget_preview_chart_only">Ainult graafiku joonistab widgeti oma renderdaja; tekst üleval on Glance’i paigenduse asemen.</string>
     <string name="title_widget_preview">Widgeti eelvaade</string>
 </resources>

@@ -52,7 +52,12 @@ object ChartStyles {
         // negative prices push the floor below it.
         zeroRule = ZeroRule.OnlyWhenNegative,
         showNowRule = colorful,
-        showSelectionRule = true,
+        // The scrub line only earns its keep on the line chart. Over bars it was a white
+        // (textOnBackground) stroke cutting straight through the columns, and the dimming already
+        // says which bar is touched: every other bar fades to `unselectedAlpha` while this one stays
+        // saturated. A line has no such width to dim, so the rule is what marks the point there.
+        // History inherits this through `day(…).copy(…)`, so it follows the same chart-type switch.
+        showSelectionRule = chartType == ChartType.LINE,
         nowRuleDash = 3f to 3f,
         nowRuleOffset = { 0f },
         xTickIndices = ::hourTicks,

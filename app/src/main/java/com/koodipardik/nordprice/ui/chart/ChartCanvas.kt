@@ -73,7 +73,7 @@ internal fun ChartCanvas(
         val scene = remember(values, selected, style.isColorful, style.chartType, widthPx, heightPx) {
             ChartSceneBuilder.build(values, style, selected, averageLine, widthPx, heightPx, density.density)
         }
-        // Selecting rebuilds the scene (the other bars dim, a rule appears), so the gesture reads
+        // Selecting rebuilds the scene (the other bars dim around the touched one), so the gesture reads
         // it through state instead of keying on it: a pointerInput block restarts when its keys
         // change, which would cancel the drag on its very first step — and skip the reset on lift,
         // leaving the selection frozen on whichever bar the finger landed on.

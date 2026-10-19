@@ -92,12 +92,15 @@ object ChartSceneBuilder {
             )
         }
         if (selected != null && style.showSelectionRule) {
-            val dimmed = values.firstOrNull { it.index == selected }?.let {
-                if (style.isColorful) style.ruleArgb else style.currentHighlightArgb
-            } ?: style.ruleArgb
+            // Brand blue, always. It used to follow the chart's own palette branch — white
+            // (`ruleArgb` = textOnBackground) when colourful, orange (`currentHighlightArgb`) when not
+            // — and both failed: the cards are white in light mode, so the white rule vanished into
+            // the surface it was drawn on, and orange read as a price level rather than a cursor.
+            // `brand` is blue in both palettes (#007AFF / #7B8FFF) and is the token the app already
+            // uses to mark a selection, e.g. the period picker.
             ops += SceneOp.Rule(
                 vertical = true, at = x(selected.toDouble()), from = plot.top, to = plot.bottom,
-                colorArgb = dimmed, thickness = 1.5f * density, dashOn = 0f, dashOff = 0f,
+                colorArgb = style.brandArgb, thickness = 1.5f * density, dashOn = 0f, dashOff = 0f,
             )
         }
 

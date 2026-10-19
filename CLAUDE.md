@@ -23,13 +23,15 @@ layer and the pure rules in `core/`.
 ## Layout
 
 ```
-app/src/main/java/koodipardik/nordprice/
+app/src/main/java/com/koodipardik/nordprice/
   core/        pure domain: Region, Language, Day, ChartType, ChartResolution, PriceLevel,
                PriceUnit + PriceFormat, MarketDay (DST-aware day bounds, UTC ISO-8601),
                PriceMath (hourly averaging), DayCoverage (is a day complete?)
   data/        PriceApi, PriceCache (files), PriceRepository, HistoryRepository,
                NetworkMonitor, SampleData
   settings/    AppSettings — one DataStore-backed StateFlow<Settings>
+  notifications/ DeviceRegistration (pure payload), NotificationSync (FCM token → anonymous Auth →
+               syncNotificationDevice), NordPriceMessagingService (onNewToken + foreground alerts)
   ui/
     Layout.kt  rememberIsTablet() + the 340dp side column used by both wide layouts
     theme/     Color.kt holds both palettes verbatim from the iOS asset catalog
@@ -70,14 +72,18 @@ collaborators — that is the whole DI story, keep it that way.
 
 * AdMob needs Android ad unit IDs (the iOS ones do not transfer); the Google Mobile Ads Gradle
   dependency, UMP for consent, and a "Privacy options" entry in Settings › About.
-* Notifications can reuse the existing Firebase project (`elektrihind-76019`) and the
-  `syncNotificationDevice` Callable Function: the payload already carries `platform` and
-  `fcmToken`, and FCM is the native transport on Android. `POST_NOTIFICATIONS` (API 33+) has to be
-  requested before a threshold toggle turns on. Registering the Android app in the Firebase console
-  (with the debug and release signing SHA-1) is a manual step.
+* Notifications are done — see `notifications/`. Same Firebase project (`elektrihind-76019`), same
+  `syncNotificationDevice` Callable Function, in `europe-west1` (the client default is `us-central1`).
+  Three things that are not visible from this repo: the backend's `platform` validator had to be
+  widened to accept `"android"` in `~/App/Elektrihind/functions/src/index.ts` (deployed 2026-10-19),
+  and against the older build an Android client gets `invalid-argument` rather than a crash; the
+  device row is keyed by the Firebase Auth **uid**, so the anonymous sign-in is load-bearing and not
+  decorative; and the payload's enum strings are validated against lists in that file, which
+  `DeviceRegistrationTest` pins.
 * Glance widgets are done — see `widget/`. Widget updates come from `WidgetRefresh` (a 15-minute
   worker plus pushes on cache and setting changes); hook new refresh reasons there rather than
   adding receivers.
-* Phase 2 (AdMob, Firebase) is in progress on the user's side; the reserved seams are the banner
-  slot at the bottom of `PriceScreen`, `AppSettings.onSettingsChanged`, and `google-services.json`
-  in `app/` (gitignored).
+* Phase 2 is AdMob only now. Still reserved: the banner slot at the bottom of `PriceScreen`. Used:
+  `AppSettings.onSettingsChanged`, which is what pushes every settings change to the backend.
+  `app/google-services.json` (gitignored) is required for every build since the google-services
+  plugin landed — a fresh clone fails until it is downloaded for `elektrihind-76019`.

@@ -23,11 +23,18 @@ build-tools 35.0.0. `local.properties` must point at the SDK:
 sdk.dir=/Users/<you>/Library/Android/sdk
 ```
 
-Gradle 8.14.5 via the wrapper; AGP 8.13.2, Kotlin 2.2.21, Compose BOM 2025.12.01.
+Gradle 8.14.5 via the wrapper; AGP 8.13.2, Kotlin 2.2.21, Compose BOM 2025.12.01, Firebase BoM
+34.19.0 (held back from 35.x — see the comment in `gradle/libs.versions.toml`). Building requires
+`app/google-services.json` (gitignored) for the registered package name; get it from the Firebase
+console for `elektrihind-76019`.
 
-`minSdk 26` (Android 8.0), `targetSdk 36`, `applicationId koodipardik.nordprice` — one id for debug
-and release, so Firebase and AdMob need only one Android app registered, the same way the iOS
+`minSdk 26` (Android 8.0), `targetSdk 36`, `applicationId com.koodipardik.nordprice` — one id for
+debug and release, so Firebase and AdMob need only one Android app registered, the same way the iOS
 bundle id covers both configurations.
+
+The id keeps the conventional `com.` prefix even though the iOS bundle id does not
+(`koodipardik.Elektrihind`); `namespace`, `applicationId` and every `package` declaration are the
+same string, deliberately.
 
 ## What is ported
 
@@ -39,6 +46,7 @@ bundle id covers both configurations.
 | Settings | `SettingsView` | `SettingsScreen` — same sections, rows and icons |
 | Widget | `NordPriceWidgetExtension` (small + medium) | `NordPriceWidget` (Glance), one resizable provider that adapts to its cell span |
 | iPad / large window | `DashboardView` + `HistoryView`'s wide layout | `PriceDashboard` and the wide `HistoryScreen`: cards in a 340 dp column beside each chart, Today and Tomorrow merged into one "Prices" tab |
+| Notifications | `NotificationService` (`NotificationService.swift`) | `notifications/` — FCM token → anonymous Auth → the same `syncNotificationDevice` Callable Function, in `europe-west1` |
 
 Core rules carried over unchanged: `€/MWh` → unit conversion (÷1000, ÷1, ÷10) with a comma decimal
 separator regardless of locale, per-market VAT (EE 24 %, LV 21 %, LT 21 %, FI 25,5 %), price-level
@@ -65,9 +73,16 @@ Data comes from `https://dashboard.elering.ee/api/nps/price` (Elering), on plain
   shadows `kotlin.Unit` and breaks every `() -> Unit` in the file.
 * **Sparse API answers.** The iOS decoder requires all four markets to be present; Elering answers
   with `null` for a market with no data, so every list is optional here.
+* **Alert taps open the app, not the Tomorrow view.** iOS routes the same tap straight to
+  `AppNavigation.shared.openTomorrowPrices()` (`NordPriceApp.swift:74`). The Compose shell keeps its
+  tab index in local state, so there is nothing to route into; a shared navigation holder is the fix.
+* **Background alerts land in FCM's own channel.** The function sends a bare `notification` payload,
+  which the system draws itself while the app is backgrounded — into its default channel, not the
+  app's `price_alerts` one. Foreground alerts do use ours. Matching them needs
+  `android: { notification: { channel_id: "price_alerts" } }` in `sendPriceNotification`.
 
-Not ported yet: AdMob banners and UMP consent, Firebase Analytics, and threshold notifications
-(FCM + the existing `syncNotificationDevice` Cloud Function).
+Not ported yet: AdMob banners and UMP consent, and Firebase Analytics (the iOS app does not use it
+either, so it stays out). Threshold notifications are ported — see `notifications/`.
 
 ## Large screens
 
@@ -129,3 +144,11 @@ Settings has a **DEBUG → Sample data** switch in debug builds only, the port o
 screenshot mode (`AppRuntimeConfiguration.usesSamplePriceData`). Prices and history then come from
 `data/SampleData.kt`, no network is touched, and ads would be hidden in iOS. The numbers are
 recognisable: today's sample curve peaks at 183 €/MWh.
+
+**DEBUG → Send test notification** is Android-only: iOS has no equivalent affordance, its
+`sendTestNotification` Callable Function gets called from the Firebase CLI. It asks the backend to
+push a real FCM message to this device's stored token. The reason it exists here is that a
+successful registration only proves the device *row* was written — the first real alert arrives
+whenever `checkTomorrowPrices` next finds a crossing price, which can be days. This proves the
+delivery path (token → device → `onMessageReceived` → notification channel) in one tap, and reports
+the server's own reason when it fails.

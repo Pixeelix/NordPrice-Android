@@ -1,6 +1,7 @@
 package com.koodipardik.nordprice.ui.settings
 
 import android.Manifest
+import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
 import androidx.activity.compose.LocalActivity
@@ -24,6 +25,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowCircleDown
+import androidx.compose.material.icons.filled.ArrowCircleUp
 import androidx.compose.material.icons.filled.AttachMoney
 import androidx.compose.material.icons.filled.BubbleChart
 import androidx.compose.material.icons.filled.CalendarMonth
@@ -68,6 +71,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.app.NotificationManagerCompat
 import com.koodipardik.nordprice.BuildConfig
 import com.koodipardik.nordprice.R
 import com.koodipardik.nordprice.core.ChartResolution
@@ -77,6 +81,7 @@ import com.koodipardik.nordprice.core.PriceFormat
 import com.koodipardik.nordprice.core.PriceUnit
 import com.koodipardik.nordprice.core.Region
 import com.koodipardik.nordprice.notifications.NotificationSync
+import com.koodipardik.nordprice.notifications.PriceAlertNotifier
 import com.koodipardik.nordprice.settings.AppSettings
 import com.koodipardik.nordprice.settings.Settings
 import com.koodipardik.nordprice.ui.ads.AdPlacement
@@ -109,6 +114,11 @@ fun SettingsScreen() {
     // Outcome of the debug test push: empty until tapped, then either the "sent" label or the
     // server's own reason. Held in composition state, so leaving Settings clears it.
     var testPushResult by remember { mutableStateOf("") }
+    // Same pattern for the two local debug alerts; each row shows its own result because
+    // OptionRow's only text slot besides the label is its trailing value.
+    var highAlertResult by remember { mutableStateOf("") }
+    var lowAlertResult by remember { mutableStateOf("") }
+    val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
 
     Column(
@@ -217,6 +227,22 @@ fun SettingsScreen() {
                     label = stringResource(R.string.title_widget_preview),
                     value = "",
                     onClick = { showWidgetPreview = true },
+                )
+                Divider()
+                OptionRow(
+                    icon = Icons.Filled.ArrowCircleUp,
+                    tint = Color(0xFFF43F5E),
+                    label = stringResource(R.string.debug_alert_high),
+                    value = highAlertResult,
+                    onClick = { highAlertResult = postDebugPriceAlert(context, isHigh = true) },
+                )
+                Divider()
+                OptionRow(
+                    icon = Icons.Filled.ArrowCircleDown,
+                    tint = Color(0xFF10B981),
+                    label = stringResource(R.string.debug_alert_low),
+                    value = lowAlertResult,
+                    onClick = { lowAlertResult = postDebugPriceAlert(context, isHigh = false) },
                 )
                 Divider()
                 val sentLabel = stringResource(R.string.debug_test_notification_sent)
@@ -632,3 +658,42 @@ private fun ChoiceSheet(
 }
 
 private typealias ColumnScope = androidx.compose.foundation.layout.ColumnScope
+
+/**
+ * Debug-only local mirror of the production price-threshold push — the port of iOS
+ * `scheduleDebugPriceNotification` (NotificationService.swift:98). Local, not FCM: the alert
+ * must render even where a token cannot be minted (a proxy-blocked emulator never gets one),
+ * and it exercises the same channel, builder and per-direction id through the very
+ * [PriceAlertNotifier] a real push uses. It deliberately ignores the two in-app alert switches
+ * — those suppress pushes already in flight when the user flips alerts off, not a tap a
+ * developer just made — and gates only on the OS permission, so a missing one is a visible
+ * message rather than an inert button; that is also why iOS returns status text.
+ */
+private fun postDebugPriceAlert(context: Context, isHigh: Boolean): String {
+    if (!NotificationManagerCompat.from(context).areNotificationsEnabled()) {
+        return context.getString(R.string.hint_notifications_denied)
+    }
+    // iOS's fixed sample values; the comma decimal is the repo rule regardless of locale.
+    // Deriving them from current settings would mean porting the server's unit/VAT formatting
+    // into a debug row (design doc's recorded call).
+    val (price, time, threshold) =
+        if (isHigh) Triple("0,161 €/kWh", "18:00", "0,150 €/kWh")
+        else Triple("0,021 €/kWh", "03:00", "0,040 €/kWh")
+    val title = context.getString(
+        if (isHigh) R.string.debug_alert_max_title else R.string.debug_alert_min_title,
+    )
+    val body = context.getString(
+        if (isHigh) R.string.debug_alert_max_body else R.string.debug_alert_min_body,
+        price,
+        time,
+        threshold,
+    )
+    PriceAlertNotifier.show(
+        context,
+        title,
+        body,
+        if (isHigh) PriceAlertNotifier.TYPE_MAX else PriceAlertNotifier.TYPE_MIN,
+    )
+    // "Push sent"/"Teavitus saadeti" reads true for a local post too — no separate status copy.
+    return context.getString(R.string.debug_test_notification_sent)
+}

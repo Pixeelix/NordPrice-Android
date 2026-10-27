@@ -42,6 +42,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -111,8 +112,13 @@ fun HistoryScreen() {
     }
 
     // A tablet gets the iOS wide layout: the cards in a column beside the chart, which needs the
-    // room more than the cards do.
+    // room more than the cards do. In portrait the cards end around 40 % of the window while the
+    // chart filled the rest — a tall, stretched widget; it is capped at half the height there.
+    // Landscape keeps the fill: its window is only 800 dp tall to begin with. Phones never reach
+    // this branch; their chart keeps its `weight(1f)` share of the column.
     if (rememberIsTablet()) {
+        val configuration = LocalConfiguration.current
+        val isPortrait = configuration.screenHeightDp > configuration.screenWidthDp
         Row(
             modifier = Modifier
                 .fillMaxSize()
@@ -127,7 +133,7 @@ fun HistoryScreen() {
                 ScreenTitle(title)
                 HistoryCards(state, settings, viewModel)
             }
-            retryAndToggle(Modifier.weight(1f).fillMaxHeight())
+            retryAndToggle(Modifier.weight(1f).fillMaxHeight(if (isPortrait) 0.5f else 1f))
         }
         return
     }

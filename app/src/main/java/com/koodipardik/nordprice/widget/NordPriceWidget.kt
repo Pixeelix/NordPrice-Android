@@ -85,12 +85,15 @@ private fun WidgetContent(snapshot: WidgetSnapshot) {
     val wide = size.width >= 250.dp
     val density = context.resources.displayMetrics.density
 
-    // The curve takes whatever the two text rows leave over, and is drawn at that size so the
-    // bitmap's aspect matches the box it lands in. That matters twice: a fixed height stretched to
-    // fill made the zero line a band, and scaling that preserves the aspect (Fit) instead shrinks
-    // the curve out from under its own hour labels. Nothing in the bitmap is text, so the residual
-    // difference only changes bar widths.
-    val textRows = if (wide) 96.dp else 76.dp
+    // The curve takes whatever the two text rows leave over. The reservation below is calibrated
+    // at fontScale 1.0 to slightly UNDER the real text height on purpose: that makes the bitmap
+    // taller than the FillBounds slot, and Glance then scales it DOWN — a downscale, and
+    // WidgetChartImage's 2x supersample on top of that, is what keeps the picture crisp at any
+    // font scale. Reserving too much was the old bug: a 96/76 dp guess left the bitmap ~1.6x too
+    // short on this 7-inch AVD, and the upscale smeared the bars and blew out their alphas.
+    // Nothing in the bitmap is text (axis labels are real Glance text below it), so the residual
+    // difference only changes bar heights and widths.
+    val textRows = if (wide) 62.dp else 50.dp
     val axisRow = 18.dp
     val chartWidth = size.width - 24.dp
     val chartHeight = (size.height - 24.dp - textRows - axisRow - 12.dp).coerceAtLeast(48.dp)

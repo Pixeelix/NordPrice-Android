@@ -23,8 +23,13 @@ object WidgetChartImage {
         density: Float,
         drawAxisLabels: Boolean = false,
     ): Bitmap {
-        val widthPx = (width.value * density).toInt().coerceAtLeast(1)
-        val heightPx = (height.value * density).toInt().coerceAtLeast(1)
+        // The bitmap is painted at 2x the display density and scaled back down by the launcher,
+        // which is what keeps bars and rules crisp however much the FillBounds slot deviates
+        // from the box estimated in NordPriceWidget — an upscale was where the soft, smeared
+        // look came from on low-density screens; a downscale is what this now always is.
+        val scale = density * 2f
+        val widthPx = (width.value * scale).toInt().coerceAtLeast(1)
+        val heightPx = (height.value * scale).toInt().coerceAtLeast(1)
         val style = ChartStyles.widget(colors, snapshot.chartType, axisLabels = drawAxisLabels) {
             PriceFormat.axisLabel(it, snapshot.unit)
         }
@@ -34,10 +39,10 @@ object WidgetChartImage {
             selected = null,
             widthPx = widthPx.toFloat(),
             heightPx = heightPx.toFloat(),
-            density = density,
+            density = scale,
         )
         return WidgetChartRenderer.render(
-            scene, style, widthPx, heightPx, 9f * density, drawLabels = drawAxisLabels,
+            scene, style, widthPx, heightPx, 9f * scale, drawLabels = drawAxisLabels,
         )
     }
 }

@@ -92,6 +92,12 @@
     <string name="debug_sample_data">Тестовые данные</string>
     <string name="debug_test_notification">Отправить тестовое уведомление</string>
     <string name="debug_test_notification_sent">Уведомление отправлено</string>
+    <string name="debug_alert_high">Отправить тест: высокая цена</string>
+    <string name="debug_alert_low">Отправить тест: низкая цена</string>
+    <string name="debug_alert_max_title">Высокая цена на электроэнергию</string>
+    <string name="debug_alert_min_title">Низкая цена на электроэнергию</string>
+    <string name="debug_alert_max_body">Завтрашний пик %1$s в %2$s превышает заданный лимит (%3$s).</string>
+    <string name="debug_alert_min_body">Завтрашний минимум %1$s в %2$s ниже заданного лимита (%3$s).</string>
     <string name="hint_widget_preview_chart_only">Только график рисует собственный рендер виджета; текст выше — замена макету Glance.</string>
     <string name="title_widget_preview">Предпросмотр виджета</string>
 </resources>

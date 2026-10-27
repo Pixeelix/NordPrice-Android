@@ -92,6 +92,12 @@
     <string name="debug_sample_data">Sample data (debug)</string>
     <string name="debug_test_notification">Send test notification</string>
     <string name="debug_test_notification_sent">Push sent</string>
+    <string name="debug_alert_high">Send test: high price</string>
+    <string name="debug_alert_low">Send test: low price</string>
+    <string name="debug_alert_max_title">High electricity price</string>
+    <string name="debug_alert_min_title">Low electricity price</string>
+    <string name="debug_alert_max_body">Tomorrow\'s peak %1$s at %2$s exceeds your set limit (%3$s).</string>
+    <string name="debug_alert_min_body">Tomorrow\'s low %1$s at %2$s is below your set limit (%3$s).</string>
     <string name="hint_widget_preview_chart_only">Only the chart is drawn by the widget’s own renderer; the text above is a stand-in for the Glance layout.</string>
     <string name="title_widget_preview">Widget preview</string>
 </resources>

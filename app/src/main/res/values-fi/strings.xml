@@ -92,6 +92,12 @@
     <string name="debug_sample_data">Näytedata</string>
     <string name="debug_test_notification">Lähetä testilmoitus</string>
     <string name="debug_test_notification_sent">Ilmoitus lähetetty</string>
+    <string name="debug_alert_high">Lähetä testi: korkea hinta</string>
+    <string name="debug_alert_low">Lähetä testi: matala hinta</string>
+    <string name="debug_alert_max_title">Korkea sähkön hinta</string>
+    <string name="debug_alert_min_title">Matala sähkön hinta</string>
+    <string name="debug_alert_max_body">Huomisen korkein hinta %1$s klo %2$s ylittää asettamasi rajan (%3$s).</string>
+    <string name="debug_alert_min_body">Huomisen alin hinta %1$s klo %2$s alittaa asettamasi rajan (%3$s).</string>
     <string name="hint_widget_preview_chart_only">Vain kaavion piirtää widgetin oma piirtäjä; yllä oleva tekst on Glance-asettelun korvike.</string>
     <string name="title_widget_preview">Widgetin esikatselu</string>
 </resources>

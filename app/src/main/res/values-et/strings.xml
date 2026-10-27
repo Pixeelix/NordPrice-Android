@@ -92,6 +92,12 @@
     <string name="debug_sample_data">Näidisandmed</string>
     <string name="debug_test_notification">Saada testteavitus</string>
     <string name="debug_test_notification_sent">Teavitus saadeti</string>
+    <string name="debug_alert_high">Saada test: kõrge hind</string>
+    <string name="debug_alert_low">Saada test: madal hind</string>
+    <string name="debug_alert_max_title">Kõrge elektrihind</string>
+    <string name="debug_alert_min_title">Madal elektrihind</string>
+    <string name="debug_alert_max_body">Homne kõrgeim hind %1$s kell %2$s ületab sinu seatud piiri (%3$s).</string>
+    <string name="debug_alert_min_body">Homne madalaim hind %1$s kell %2$s on alla sinu seatud piiri (%3$s).</string>
     <string name="hint_widget_preview_chart_only">Ainult graafiku joonistab widgeti oma renderdaja; tekst üleval on Glance’i paigenduse asemen.</string>
     <string name="title_widget_preview">Widgeti eelvaade</string>
 </resources>

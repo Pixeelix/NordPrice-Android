@@ -53,18 +53,24 @@ import com.koodipardik.nordprice.ui.theme.AppTheme
 fun WidgetPreviewSheet(onDismiss: () -> Unit) {
     val container = rememberContainer()
     val settings = rememberSettings()
-    val context = LocalContext.current
     val density = LocalDensity.current.density
     var snapshot by remember { mutableStateOf<WidgetSnapshot?>(null) }
 
-    LaunchedEffect(settings.region, settings.unit, settings.includeTax, settings.chartType, settings.chartResolution) {
+    // Read as a composable, not through `context.getString` inside the effect below: a resource id
+    // resolved off a raw Context is not invalidated when the Configuration changes, so switching the
+    // system language would leave this preview holding the old unit label until something else
+    // happened to restart the effect. `stringResource` recomposes, and the label is a key of the
+    // effect, so that recomposition re-runs the build.
+    val unitLabel = stringResource(settings.unit.labelRes)
+
+    LaunchedEffect(settings.region, settings.unit, settings.includeTax, settings.chartType, settings.chartResolution, unitLabel) {
         val points = runCatching {
             container.priceRepository.loadFullDayData(Day.TODAY, settings.region)
         }.getOrElse { container.priceRepository.loadCached(Day.TODAY, settings.region) }
         snapshot = WidgetSnapshotBuilder.build(
             settings = settings,
             points = points,
-            unitLabel = context.getString(settings.unit.labelRes),
+            unitLabel = unitLabel,
         )
     }
 

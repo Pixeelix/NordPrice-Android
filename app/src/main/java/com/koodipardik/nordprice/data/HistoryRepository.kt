@@ -11,6 +11,7 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.ZoneId
+import java.util.Locale
 
 /** Average Nord Pool price of one calendar day, raw €/MWh before unit conversion and VAT. */
 @Serializable
@@ -26,7 +27,14 @@ object HistoryCalendar {
     /** Elering's price data starts in 2012 (Finland) and mid-2013 (Baltics). */
     val earliestDate: LocalDate = LocalDate.of(2013, 1, 1)
 
-    fun monthKey(date: LocalDate): String = String.format("%04d-%02d", date.year, date.monthValue)
+    /**
+     * `Locale.ROOT` is not style: `String.format` without a locale uses the device's, and a device
+     * set to a non-Latin numbering system (ar-SA, fa-IR) formats `%04d` as ٢٠٢٦. That key is written
+     * into the on-disk history cache and looked up again in the view model, so the digits have to be
+     * ASCII — both to match the format iOS writes and to keep the cache alive when the *device*
+     * locale changes under an app whose language is chosen in Settings.
+     */
+    fun monthKey(date: LocalDate): String = String.format(Locale.ROOT, "%04d-%02d", date.year, date.monthValue)
 
     fun epochDayStart(date: LocalDate): Long = date.atStartOfDay(zone).toEpochSecond()
 

@@ -14,12 +14,15 @@ import com.koodipardik.nordprice.core.PriceMath
 import com.koodipardik.nordprice.core.PricePoint
 import com.koodipardik.nordprice.core.PriceUnit
 import com.koodipardik.nordprice.core.Region
+import com.koodipardik.nordprice.data.HistoryCalendar
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.Instant
+import java.time.LocalDate
 import java.time.ZoneId
+import java.util.Locale
 
 /** The pure rules the port must keep identical to iOS. */
 class CoreRulesTest {
@@ -28,6 +31,20 @@ class CoreRulesTest {
 
     private fun day(startEpochSecond: Long, count: Int, stepSeconds: Long) =
         (0 until count).map { PricePoint(startEpochSecond + it * stepSeconds, 100.0 + it) }
+
+    @Test
+    fun `history month keys are ASCII whatever the device locale says`() {
+        // The shape iOS writes, and the key the on-disk history cache and HistoryViewModel both look
+        // up. `String.format` with no explicit locale formats digits through the *device's*
+        // numbering system, so an Arabic or Persian phone would cache months under non-ASCII keys.
+        val device = Locale.getDefault()
+        Locale.setDefault(Locale.forLanguageTag("ar-SA"))
+        try {
+            assertEquals("2026-10", HistoryCalendar.monthKey(LocalDate.of(2026, 10, 17)))
+        } finally {
+            Locale.setDefault(device)
+        }
+    }
 
     @Test
     fun `a full quarter-hour day covers itself`() {

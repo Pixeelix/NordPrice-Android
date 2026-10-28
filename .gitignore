@@ -7,7 +7,17 @@ build/
 /captures
 .externalNativeBuild
 .cxx
+# Kotlin 2.x compiler session directory; regenerates on every build.
+.kotlin/
 local.properties
 *.keystore
 !debug.keystore
+# `*.keystore` above does not cover the .jks extension, and a signing key that reaches git history
+# has to be rotated forever rather than simply deleted.
+*.jks
+/app/keystore.properties
 /app/google-services.json
+# The signed bundle is a publication artifact, not source: it regenerates from the tag, and 7.5 MB of
+# it in history is a weight every clone pays forever. Android Studio's export step writes it here; the
+# build directory it normally comes out of is already ignored by `build/` above.
+/app/release/

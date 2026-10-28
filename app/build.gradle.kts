@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -7,6 +9,42 @@ plugins {
     // so a fresh clone cannot build until it is dropped in — deliberate: a missing Firebase config
     // should stop the build rather than resolve to the wrong project at runtime.
     alias(libs.plugins.google.services)
+}
+
+/**
+ * The Play upload key, if this machine has one. `app/keystore.properties` is gitignored and holds
+ * four keys (see `keystore.properties.example`); the key file itself lives outside the repo, because
+ * a signing key that reaches git history can never be taken back out of it.
+ *
+ * Read through the Provider API rather than `File.isFile`: the configuration cache is on, and a
+ * provider queried at configuration time is tracked as an input, so the moment the file appears or
+ * disappears the cached configuration is invalidated and the decision below is retaken. A plain
+ * `exists()` check would be a configuration-cache correction warning instead.
+ */
+val keystoreProps: Properties? = providers
+    .fileContents(layout.projectDirectory.file("keystore.properties"))
+    .asText.orNull
+    ?.let { text -> Properties().apply { text.byteInputStream().use { load(it) } } }
+
+// Absent rather than half-filled: a properties file missing one of the four keys is a mistake, and
+// silently signing with the debug key on top of it would hide that mistake in the one place it
+// matters. `signingReport` is the command that shows which of the two paths a build took.
+val uploadKeystoreConfigured = keystoreProps != null
+if (keystoreProps != null) {
+    val missing = listOf("storeFile", "storePassword", "keyAlias", "keyPassword")
+        .filter { keystoreProps.getProperty(it).isNullOrBlank() }
+    if (missing.isNotEmpty()) {
+        throw GradleException(
+            "app/keystore.properties is missing ${missing.joinToString()}; delete the file to fall " +
+                "back to the debug key deliberately rather than by accident.",
+        )
+    }
+}
+if (!uploadKeystoreConfigured) {
+    logger.warn(
+        "NordPrice: no app/keystore.properties — the release variant is signed with the ANDROID DEBUG " +
+            "key. Fine for running a release build on a phone; never uploadable. See README › Cutting a release.",
+    )
 }
 
 android {
@@ -24,10 +62,24 @@ android {
         applicationId = "com.koodipardik.nordprice"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "4.1"
+        // One step on from the first Android upload; the name says what is in it — release builds now
+        // serve AdMob banners (see README > Ads), which every build before this one compiled out.
+        versionCode = 2
+        versionName = "4.1.1"
 
         resourceConfigurations += setOf("en", "et", "fi", "ru")
+    }
+
+    signingConfigs {
+        if (uploadKeystoreConfigured) {
+            create("upload") {
+                // A relative storeFile resolves against app/, next to this script.
+                storeFile = file(keystoreProps!!.getProperty("storeFile"))
+                storePassword = keystoreProps.getProperty("storePassword")
+                keyAlias = keystoreProps.getProperty("keyAlias")
+                keyPassword = keystoreProps.getProperty("keyPassword")
+            }
+        }
     }
 
     buildTypes {
@@ -40,8 +92,11 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            // Signed with the debug key until a Play upload key is configured.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = if (uploadKeystoreConfigured) {
+                signingConfigs.getByName("upload")
+            } else {
+                signingConfigs.getByName("debug")
+            }
         }
     }
 
@@ -100,10 +155,48 @@ dependencies {
     implementation(libs.firebase.functions)
     implementation(libs.firebase.auth)
 
-    // Phase 2, second half. UMP is separate from the ads SDK, as on iOS, because consent has to be
-    // resolved before MobileAds.initialize — see ui/ads/ConsentManager.kt.
+    // Ads ship in every build type. That is what puts AD_ID, the ad-services permissions and
+    // AdActivity into the artifact Play scans, and what makes the Data Safety declaration in
+    // README › Cutting a release a live obligation rather than a footnote; the release no-ops this
+    // replaced (src/release/java/…/ui/ads/) are gone, so `src/main` has one AnchorBanner and one
+    // ConsentManager like everything else it composes against. Only the AdMob ids still differ per
+    // build type, and they differ in the manifests rather than here.
+    // UMP is separate from the ads SDK, as on iOS, because consent has to be resolved before
+    // MobileAds.initialize — see ui/ads/ConsentManager.kt.
     implementation(libs.play.services.ads)
     implementation(libs.user.messaging.platform)
 
     testImplementation(libs.junit)
+}
+
+/**
+ * The debug key may build a release artifact, but it may not produce the one that goes to Play.
+ *
+ * `assembleRelease` stays available on purpose: installing a minified, R8-processed release build on
+ * a phone is a step you have to be able to take before a key exists, and an APK you hand to a device
+ * you own cannot be published by accident. `bundleRelease` is the different case — that file is the
+ * upload, its name says nothing about the key inside it, and the debug keystore is the same file with
+ * the same password (`android`) on every Android machine. So this fails here rather than trusting a
+ * warning that scrolled past during configuration.
+ *
+ * The escape hatch exists because a CI machine or a fresh laptop may legitimately need a bundle
+ * before anyone has run the key ceremony: `-PallowDebugSignedBundle`. The boolean is read at
+ * configuration time so the task action never touches the project, which the configuration cache
+ * would refuse.
+ */
+if (!uploadKeystoreConfigured) {
+    val allowDebugSignedBundle = providers.gradleProperty("allowDebugSignedBundle").isPresent
+    tasks.configureEach {
+        if (name == "bundleRelease" && !allowDebugSignedBundle) {
+            doFirst {
+                throw GradleException(
+                    "bundleRelease stopped: no app/keystore.properties, so this bundle would be signed " +
+                        "with the Android debug key. Create the upload key (README > Cutting a release) " +
+                        "and re-run. If you only need to test a release build on a device, use " +
+                        "`./gradlew installRelease`. If you truly need a .aab before the key exists, " +
+                        "use `./gradlew bundleRelease -PallowDebugSignedBundle`.",
+                )
+            }
+        }
+    }
 }

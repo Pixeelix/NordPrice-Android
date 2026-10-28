@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?><!--
+  Auto Backup and device-to-device transfer rules for Android 12+ (`android:dataExtractionRules`).
+  The same policy as backup_rules.xml, which older platforms read instead; see that file for why
+  `shared_prefs` is excluded and why nothing user-visible is lost by it.
+
+  Cloud backup and direct transfer are listed separately because the format requires it, not because
+  they should differ — one rule here is the honest declaration.
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude
+            domain="sharedpref"
+            path="." />
+    </cloud-backup>
+    <device-transfer>
+        <exclude
+            domain="sharedpref"
+            path="." />
+    </device-transfer>
+</data-extraction-rules>

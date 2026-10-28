@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?><!--
+  Auto Backup rules for Android 10 – 11 (`android:fullBackupContent`). API 31+ reads
+  data_extraction_rules.xml instead; both exist because minSdk is 26 and the two formats are not
+  interchangeable.
+
+  What is kept is everything the user chose, and it all lives under `files/`: the settings DataStore
+  (`files/datastore/nordprice_settings.preferences_pb`, which `AppSettings.persist` writes) and the
+  day cache (`files/price_cache`). What is dropped is the whole `shared_prefs` domain, which holds
+  no user-visible state but does hold credentials: the Firebase Auth anonymous account and its
+  refresh token, the FCM registration token, UMP's consent record, and `nordprice_notifications.xml`
+  with the installation UUID. That is the platform's own advice for this exact case: device-specific
+  identifiers, and an FCM registration token in particular, must not be restored onto a second
+  install. Restoring them would make two phones the *same* device to the backend, because the device
+  row is keyed by the Auth uid, and the newer phone would quietly take over the older one's alerts.
+
+  Dropping the locale AppCompat stores for Android 12 and below costs nothing: the language is also
+  in the DataStore, and `AppShell` pushes it back into `AppCompatDelegate.setApplicationLocales` on
+  the next launch.
+-->
+<full-backup-content>
+    <exclude
+        domain="sharedpref"
+        path="." />
+</full-backup-content>

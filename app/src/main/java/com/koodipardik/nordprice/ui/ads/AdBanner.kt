@@ -22,13 +22,18 @@ import com.google.android.gms.ads.AdRequest
 import com.google.android.gms.ads.AdSize
 import com.google.android.gms.ads.AdView
 import com.google.android.gms.ads.LoadAdError
-import com.koodipardik.nordprice.BuildConfig
 import com.koodipardik.nordprice.ui.rememberSettings
 
 /**
  * An anchor banner that behaves like iOS `AdaptiveBannerAd`: it occupies no vertical space until an
- * ad has actually loaded, so a no-fill — or the whole session before consent resolves — collapses
- * instead of leaving a gap under the chart. iOS animates the same reveal over 0.25 s.
+ * ad has actually loaded, so a no-fill — or the whole session before consent resolves, or a build with
+ * no unit id for this placement — collapses instead of leaving a gap under the chart. iOS animates the
+ * same reveal over 0.25 s.
+ *
+ * Three independent gates run before anything is asked for, and each of them is why the layout below
+ * can legitimately draw nothing: sample data on (the offline mode, which is also iOS's screenshot
+ * mode), consent unresolved, or [AdPlacement.resolveUnitId] returning null for a placement this build
+ * has no id for.
  */
 @Composable
 fun AnchorBanner(placement: AdPlacement, modifier: Modifier = Modifier) {
@@ -37,7 +42,7 @@ fun AnchorBanner(placement: AdPlacement, modifier: Modifier = Modifier) {
 
     // iOS hides banners in screenshot mode (`AdRuntimeConfiguration.hidesAdBanners`). The Android
     // switch that means the same thing is DEBUG › Sample data, which is also the offline mode.
-    if (BuildConfig.DEBUG && settings.useSampleData) return
+    if (settings.useSampleData) return
 
     val canRequestAds by ConsentManager.canRequestAds.collectAsState()
     if (!canRequestAds) return

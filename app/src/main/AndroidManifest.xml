@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
@@ -11,9 +12,10 @@
     -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!--
-      The Advertising ID the ads SDK reads. It is contributed by play-services-ads' own manifest,
-      but declared here for the same reason POST_NOTIFICATIONS is: the app's behaviour should not
-      depend on which library happens to be in the build.
+      The Advertising ID the Mobile Ads SDK reads. It is contributed by play-services-ads' own
+      manifest too, but declared here for the same reason POST_NOTIFICATIONS is above: the app's
+      behaviour should not depend on which library happens to be in the build. It is also what Play's
+      Data Safety form has to describe — see README > Cutting a release.
     -->
     <uses-permission android:name="com.google.android.gms.permission.AD_ID" />
 
@@ -27,14 +29,48 @@
         android:theme="@style/Theme.NordPrice">
 
         <!--
-          Mandatory: the Mobile Ads SDK aborts during initialise without it, and it has to be an
-          Android AdMob app id (the `~` form) — the iOS one is a different app record. What is here
-          now is Google's sample app id, chosen so the debug test banners in AdPlacement resolve;
-          both halves have to be replaced before a release build can serve real ads.
+          Mandatory: the Mobile Ads SDK refuses to initialise without it. This is the AdMob record for
+          the *Android* app (package com.koodipardik.nordprice, publisher 5431783362632568 — the same
+          AdMob account as iOS, a different app, so none of the iOS unit ids belong here). An app id is
+          not a secret: it is a public identifier that ships inside the APK, which is why it can sit in
+          a tracked file while the upload keystore cannot.
+
+          Debug never reads this line: app/src/debug/AndroidManifest.xml overrides it with Google's
+          sample app id, which is the pair for the test unit id in AdPlacement.resolveUnitId.
+
+          This value and the unit ids in AdPlacement are the two halves of one configuration:
+          AdPlacement.isConfigured requires both, so an app id with no units (or the reverse) leaves the
+          build ad-free instead of half-started. That pairing is the reason the units live in Kotlin and
+          this lives here even though they name the same AdMob account.
         -->
         <meta-data
             android:name="com.google.android.gms.ads.APPLICATION_ID"
-            android:value="ca-app-pub-3940256099942544~3347511713" />
+            android:value="ca-app-pub-5431783362632568~3036192953" />
+
+        <!--
+          Auto-initialisation, switched off. play-services-ads contributes this provider itself, and a
+          ContentProvider runs at process attach — before MainActivity.onResume, before
+          ConsentManager.gatherConsent, and so before anyone has asked whether ads may be requested at
+          all. Two things follow from that, and both are fixed by this one element:
+
+          * Compliance. The SDK parsing its app id and starting up on every launch, consented or not, is
+            the exact pattern GDPR enforcement targets; ConsentManager's rule that MobileAds only starts
+            once canRequestAds says so was only half true while a library provider got there first.
+          * Failure mode. The provider throws IllegalStateException ("Invalid application ID") on a
+            placeholder or missing id, which is a crash on launch for a build that should simply be
+            ad-free. With auto-init gone the id is only read by MobileAds.initialize, which
+            AdPlacement.isConfigured keeps away from a build that has no real ids — so the unconfigured
+            state is inert instead of fatal.
+
+          The cost is that MobileAds.initialize must be called by hand and must finish first, which
+          ConsentManager does on the consent callback before it publishes canRequestAds.
+        -->
+        <provider
+            android:name="com.google.android.gms.ads.MobileAdsInitProvider"
+            android:authorities="${applicationId}.mobileadsinitprovider"
+            android:exported="false"
+            android:initOrder="100"
+            tools:node="remove" />
 
         <activity
             android:name=".MainActivity"

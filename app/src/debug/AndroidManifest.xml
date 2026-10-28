@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Debug-only manifest, merged over src/main for debug builds. Ads are no longer a debug-only *path* —
+  the SDK, the AD_ID permission and AnchorBanner are all in src/main now — but the app id still is,
+  because debug asks Google's sample app for Google's test banner unit (AdPlacement.resolveUnitId)
+  while release asks the real AdMob app record. One key, two values, so the pair can never be split:
+  a release build cannot inherit the sample id, and a debug build cannot spend real units.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <application>
+        <!--
+          The AdMob app id for testing, from Google's own documentation. Safe precisely because the
+          merged release manifest cannot contain it, and tools:replace states the override rather than
+          relying on merge order. What keeps a release build without unit ids out of MobileAds entirely
+          is AdPlacement.isConfigured, not this file.
+        -->
+        <meta-data
+            android:name="com.google.android.gms.ads.APPLICATION_ID"
+            android:value="ca-app-pub-3940256099942544~3347511713"
+            tools:replace="android:value" />
+    </application>
+</manifest>

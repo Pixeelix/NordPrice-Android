@@ -84,8 +84,6 @@ import com.koodipardik.nordprice.notifications.NotificationSync
 import com.koodipardik.nordprice.notifications.PriceAlertNotifier
 import com.koodipardik.nordprice.settings.AppSettings
 import com.koodipardik.nordprice.settings.Settings
-import com.koodipardik.nordprice.ui.ads.AdPlacement
-import com.koodipardik.nordprice.ui.ads.AnchorBanner
 import com.koodipardik.nordprice.ui.ads.ConsentManager
 import com.koodipardik.nordprice.ui.components.CardHorizontalInset
 import com.koodipardik.nordprice.ui.components.appCard
@@ -293,8 +291,6 @@ fun SettingsScreen() {
             )
         }
 
-        Spacer(Modifier.height(16.dp))
-        AnchorBanner(AdPlacement.SETTINGS)
     }
 
     if (showWidgetPreview) {

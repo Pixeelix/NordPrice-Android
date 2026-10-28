@@ -37,6 +37,7 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -70,8 +71,16 @@ internal fun ChartCanvas(
     BoxWithConstraints(modifier) {
         val widthPx = with(density) { maxWidth.toPx() }
         val heightPx = with(density) { maxHeight.toPx() }
-        val scene = remember(values, selected, style.isColorful, style.chartType, widthPx, heightPx) {
-            ChartSceneBuilder.build(values, style, selected, averageLine, widthPx, heightPx, density.density)
+        // The labels are real text at `axisFontSize`, so their height — and with it how many of them
+        // the plot can carry — follows the user's font scale. The scene is told, and drops what would
+        // overlap. 1.35 is the line box a single run of text occupies.
+        val axisLabelHeightPx = with(density) { axisFontSize.toPx() } * 1.35f
+        val scene = remember(
+            values, selected, style.isColorful, style.chartType, widthPx, heightPx, axisLabelHeightPx,
+        ) {
+            ChartSceneBuilder.build(
+                values, style, selected, averageLine, widthPx, heightPx, density.density, axisLabelHeightPx,
+            )
         }
         // Selecting rebuilds the scene (the other bars dim around the touched one), so the gesture reads
         // it through state instead of keying on it: a pointerInput block restarts when its keys
@@ -116,12 +125,16 @@ internal fun ChartCanvas(
             drawScene(scene, density.density)
         }
 
+        // Both label sets are clipped to their own gutter. The scene has already dropped the ones that
+        // would land on top of each other; this catches the other axis — a label wider than its
+        // gutter at a large system font, which would otherwise print across the bars it labels.
         scene.yTicks.forEach { tick ->
             Text(
                 text = tick.label,
                 style = TextStyle(fontSize = axisFontSize, color = axisColor),
                 textAlign = TextAlign.End,
                 maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
                 modifier = Modifier
                     .offset(y = ((tick.position / density.density) - 7f).coerceAtLeast(0f).dp)
                     .width(style.insets.left.dp - 4.dp),
@@ -133,6 +146,7 @@ internal fun ChartCanvas(
                 style = TextStyle(fontSize = axisFontSize, fontWeight = FontWeight.SemiBold, color = axisColor),
                 textAlign = TextAlign.Center,
                 maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
                 modifier = Modifier
                     .offset(
                         x = ((tick.position / density.density) - 15f).coerceAtLeast(0f).dp,
@@ -148,10 +162,10 @@ internal fun ChartCanvas(
             Box(
                 modifier = Modifier
                     .offset(
-                        x = (badge.x / density.density - 16f).coerceIn(0f, maxWidth.value - 32f).dp,
+                        x = nowBadgeOffsetX(badge.x, density.density, maxWidth.value).dp,
                         y = (badge.y / density.density - 20f).coerceAtLeast(0f).dp,
                     )
-                    .width(32.dp)
+                    .width(NowBadgeWidthDp.dp)
                     .height(14.dp)
                     .clip(RoundedCornerShape(50))
                     .background(Color(current?.level?.let(style.levelArgb) ?: style.brandArgb)),
@@ -167,6 +181,23 @@ internal fun ChartCanvas(
         }
     }
 }
+
+/**
+ * The "Now" capsule's left edge, in dp: centred over its bar, held inside the box that draws it.
+ *
+ * The clamp used to be `coerceIn(0f, maxWidth - 32f)` inline, which throws
+ * `Cannot coerce value to an empty range` the moment the box is narrower than the badge — a chart slot
+ * under 32 dp, which a short window in split screen can reach. An empty range now means "no room to
+ * centre in", so the badge sits at the leading edge.
+ */
+internal fun nowBadgeOffsetX(badgeX: Float, density: Float, maxWidthDp: Float): Float {
+    val leading = badgeX / density - NowBadgeWidthDp / 2f
+    val last = (maxWidthDp - NowBadgeWidthDp).coerceAtLeast(0f)
+    return leading.coerceIn(0f, last)
+}
+
+/** Width of the "Now" capsule, shared by its offset clamp and its own modifier. */
+private const val NowBadgeWidthDp = 32f
 
 private fun DrawScope.drawScene(scene: ChartScene, density: Float) {
     scene.ops.forEach { op ->

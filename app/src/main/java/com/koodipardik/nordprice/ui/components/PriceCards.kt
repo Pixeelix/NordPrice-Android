@@ -36,17 +36,19 @@ import androidx.compose.ui.unit.sp
 import com.koodipardik.nordprice.R
 import com.koodipardik.nordprice.core.Region
 import com.koodipardik.nordprice.core.PriceUnit
+import com.koodipardik.nordprice.ui.StackTheme
 import com.koodipardik.nordprice.ui.theme.AppTheme
 
 /** Screen title — the iOS `TitleView`: 32 pt medium, sitting on the page gradient. */
 @Composable
 fun ScreenTitle(text: String, modifier: Modifier = Modifier) {
+    val sizes = StackTheme.sizes
     Text(
         text = text,
         modifier = modifier
-            .padding(start = 20.dp, end = 20.dp, top = 10.dp, bottom = 12.dp)
+            .padding(start = 20.dp, end = 20.dp, top = 10.dp, bottom = sizes.titleGap)
             .semantics { heading() },
-        fontSize = 32.sp,
+        fontSize = sizes.titleSize,
         fontWeight = FontWeight.Medium,
         color = AppTheme.textOnBackground,
         textAlign = TextAlign.Center,
@@ -98,6 +100,7 @@ fun HeroPriceCard(
     modifier: Modifier = Modifier,
     valueAccessibilityLabel: String? = null,
 ) {
+    val sizes = StackTheme.sizes
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -125,7 +128,7 @@ fun HeroPriceCard(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(62.dp)
+                .height(sizes.heroValueHeight)
                 .padding(horizontal = 24.dp)
                 .semantics(mergeDescendants = true) {
                     valueAccessibilityLabel?.let { contentDescription = "$it $value $unit" }
@@ -143,7 +146,7 @@ fun HeroPriceCard(
 
         Text(
             text = unit,
-            fontSize = 24.sp,
+            fontSize = sizes.unitTextSize,
             fontWeight = FontWeight.Medium,
             color = AppTheme.cardText,
             textAlign = TextAlign.Center,
@@ -268,7 +271,7 @@ private fun HistoryEnd(
 private fun CardLabel(text: String) {
     Text(
         text = text,
-        fontSize = 18.sp,
+        fontSize = StackTheme.sizes.cardTextSize,
         fontWeight = FontWeight.Medium,
         color = AppTheme.cardLabel,
     )
@@ -276,7 +279,12 @@ private fun CardLabel(text: String) {
 
 @Composable
 private fun CardValue(text: String) {
-    Text(text = text, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = AppTheme.cardText)
+    Text(
+        text = text,
+        fontSize = StackTheme.sizes.cardTextSize,
+        fontWeight = FontWeight.Bold,
+        color = AppTheme.cardText,
+    )
 }
 
 /** The localised name of a price unit, e.g. "senti/kWh" in Finnish. */

@@ -11,8 +11,11 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -35,6 +38,14 @@ import com.koodipardik.nordprice.core.Region
 import com.koodipardik.nordprice.data.PriceRepository
 import com.koodipardik.nordprice.settings.Settings
 import com.koodipardik.nordprice.ui.TabletSideColumnWidth
+import com.koodipardik.nordprice.ui.LocalStackPlan
+import com.koodipardik.nordprice.ui.StackKind
+import com.koodipardik.nordprice.ui.StackTier
+import com.koodipardik.nordprice.ui.currentStackPlan
+import com.koodipardik.nordprice.ui.leftoverOrFloor
+import com.koodipardik.nordprice.ui.rowHeightOrFloor
+import com.koodipardik.nordprice.ui.sizes
+import com.koodipardik.nordprice.ui.StackTheme
 import com.koodipardik.nordprice.ui.ads.AdPlacement
 import com.koodipardik.nordprice.ui.ads.AnchorBanner
 import com.koodipardik.nordprice.ui.components.CardHorizontalInset
@@ -72,24 +83,33 @@ fun PriceScreen(day: Day) {
 
     DayLifecycleEffects(day, chartViewModel, priceState.viewModel)
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(horizontal = CardHorizontalInset),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        ScreenTitle(dayTitleText(day))
+    val plan = currentStackPlan(StackKind.Price)
+    CompositionLocalProvider(LocalStackPlan provides plan) {
+        val sizes = plan.sizes()
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .then(
+                    // The last resort: a window that cannot hold even the compact stack scrolls, so
+                    // everything stays reachable instead of being drawn past the bottom edge.
+                    if (plan.tier == StackTier.Scroll) Modifier.verticalScroll(rememberScrollState()) else Modifier,
+                )
+                .padding(horizontal = CardHorizontalInset),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            ScreenTitle(dayTitleText(day))
 
-        if (day == Day.TOMORROW && chartState.missingData) {
-            TomorrowPendingCard(Modifier.weight(1f))
-        } else {
-            DayCards(day, chartState, priceState.value, onRegionClick = { showRegionPicker = true })
-            Spacer(Modifier.height(12.dp))
-            DayChart(day, chartState, settings, Modifier.fillMaxWidth().weight(1f))
+            if (day == Day.TOMORROW && chartState.missingData) {
+                TomorrowPendingCard(leftoverOrFloor(plan, sizes.chartFloor))
+            } else {
+                DayCards(day, chartState, priceState.value, onRegionClick = { showRegionPicker = true })
+                Spacer(Modifier.height(sizes.cardGap))
+                DayChart(day, chartState, settings, leftoverOrFloor(plan, sizes.chartFloor))
+            }
+
+            AnchorBanner(priceBannerPlacement(day, chartState.missingData))
+            Spacer(Modifier.height(8.dp))
         }
-
-        AnchorBanner(priceBannerPlacement(day, chartState.missingData))
-        Spacer(Modifier.height(8.dp))
     }
 
     RegionPicker(showRegionPicker) { showRegionPicker = false }
@@ -125,43 +145,54 @@ fun PriceDashboard() {
     DayLifecycleEffects(Day.TODAY, todayViewModel, priceState.viewModel)
     DayLifecycleEffects(Day.TOMORROW, tomorrowViewModel, null)
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(horizontal = CardHorizontalInset, vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(20.dp),
-    ) {
-        DayRow(
-            title = dayTitleText(Day.TODAY),
-            modifier = Modifier.weight(1f),
-            cards = {
-                DayCards(Day.TODAY, todayState, priceState.value, onRegionClick = { showRegionPicker = true })
-            },
-            chart = {
-                DayChart(Day.TODAY, todayState, settings, Modifier.fillMaxSize())
-            },
-        )
+    val plan = currentStackPlan(StackKind.Dashboard)
+    CompositionLocalProvider(LocalStackPlan provides plan) {
+        val sizes = plan.sizes()
+        // A row is the taller of its two columns, and the chart card is the taller one at both tiers
+        // (244 dp compact, 306 dp full), so honouring the plan's tier is what keeps the card column
+        // from being laid out past the bottom of its row — which is where the min/avg/max card went
+        // missing on a foldable's inner screen.
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .then(
+                    if (plan.tier == StackTier.Scroll) Modifier.verticalScroll(rememberScrollState()) else Modifier,
+                )
+                .padding(horizontal = CardHorizontalInset, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(20.dp),
+        ) {
+            DayRow(
+                title = dayTitleText(Day.TODAY),
+                modifier = rowHeightOrFloor(plan, sizes.dashboardRowFloor),
+                cards = {
+                    DayCards(Day.TODAY, todayState, priceState.value, onRegionClick = { showRegionPicker = true })
+                },
+                chart = {
+                    DayChart(Day.TODAY, todayState, settings, Modifier.fillMaxSize())
+                },
+            )
 
-        DayRow(
-            title = dayTitleText(Day.TOMORROW),
-            modifier = Modifier.weight(1f),
-            cards = {
-                if (!tomorrowState.missingData) {
-                    DayCards(Day.TOMORROW, tomorrowState, null, onRegionClick = { showRegionPicker = true })
-                }
-            },
-            chart = {
-                if (tomorrowState.missingData) {
-                    TomorrowPendingCard(Modifier.fillMaxSize())
-                } else {
-                    DayChart(Day.TOMORROW, tomorrowState, settings, Modifier.fillMaxSize())
-                }
-            },
-        )
+            DayRow(
+                title = dayTitleText(Day.TOMORROW),
+                modifier = rowHeightOrFloor(plan, sizes.dashboardRowFloor),
+                cards = {
+                    if (!tomorrowState.missingData) {
+                        DayCards(Day.TOMORROW, tomorrowState, null, onRegionClick = { showRegionPicker = true })
+                    }
+                },
+                chart = {
+                    if (tomorrowState.missingData) {
+                        TomorrowPendingCard(Modifier.fillMaxSize())
+                    } else {
+                        DayChart(Day.TOMORROW, tomorrowState, settings, Modifier.fillMaxSize())
+                    }
+                },
+            )
 
-        // One banner serves the whole dashboard, as in iOS DashboardView.swift:48 — which is why it
-        // asks for today's unit even though tomorrow shares the screen.
-        AnchorBanner(AdPlacement.TODAY)
+            // One banner serves the whole dashboard, as in iOS DashboardView.swift:48 — which is why it
+            // asks for today's unit even though tomorrow shares the screen.
+            AnchorBanner(AdPlacement.TODAY)
+        }
     }
 
     RegionPicker(showRegionPicker) { showRegionPicker = false }
@@ -182,7 +213,7 @@ private fun DayRow(
     ) {
         Column(
             modifier = Modifier.width(TabletSideColumnWidth),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(StackTheme.sizes.cardGap),
         ) {
             Text(
                 text = title,
@@ -206,7 +237,7 @@ private fun DayCards(
     onRegionClick: () -> Unit,
 ) {
     val settings = rememberSettings()
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(StackTheme.sizes.cardGap)) {
         if (day == Day.TODAY) {
             HeroPriceCard(
                 leading = { RegionFlagButton(region = settings.region, onClick = onRegionClick) },

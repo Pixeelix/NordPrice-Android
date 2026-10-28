@@ -39,6 +39,8 @@ app/src/main/java/com/koodipardik/nordprice/
                PriceAlertNotifier (one rendering path for FCM and debug alerts)
   ui/
     Layout.kt  rememberIsTablet() + the 340dp side column used by both wide layouts
+    LayoutBudget.kt  the measured content height, the StackTier/StackPlan rules that spend it, and the
+               StackSizes (title, hero, unit, card text, chart floor) each tier draws at
     theme/     Color.kt holds both palettes verbatim from the iOS asset catalog
     chart/     ChartScene.kt (shared geometry + rules), ChartCanvas.kt (Compose renderer),
                ChartStyles.kt (day / history / widget variants), ChartCards.kt, MonotoneSpline.kt
@@ -62,6 +64,11 @@ collaborators — that is the whole DI story, keep it that way.
 * **Phone and tablet share their building blocks, not their layouts.** `DayCards`, `DayChart`,
   `HistoryCards` and `ChartHeader` are composed by both arrangements; adding a card means adding it
   once.
+* **Heights are budgeted, never assumed.** A screen asks `stackPlanFor(kind, measuredHeightDp)` for its
+  `StackPlan` and draws at `StackTheme.sizes`; cards must not hardcode a size that a tier is meant to
+  set, and no new block may go on a price or history stack without adding its height to that file's
+  arithmetic. A `Column` of children with minimums does not compress when the window is short — it lays
+  the overflow out past the bottom edge, where it is invisible and unreachable.
 * **Match iOS unless the platform disagrees.** Behavioural quirks are ported on purpose, with a
   comment saying so: the current-bar index is a proportion-of-day estimate (as on iOS, wrong on two
   DST days a year), the decimal separator is always a comma regardless of locale, and day bounds

@@ -47,6 +47,7 @@ import com.koodipardik.nordprice.core.PriceUnit
 import com.koodipardik.nordprice.ui.components.appCard
 import com.koodipardik.nordprice.ui.components.isLargeText
 import com.koodipardik.nordprice.ui.components.unitLabel
+import com.koodipardik.nordprice.ui.StackTheme
 import com.koodipardik.nordprice.ui.theme.AppTheme
 
 /**
@@ -64,7 +65,9 @@ fun PriceChartCard(
     title: String,
     onToggleChartType: () -> Unit,
     modifier: Modifier = Modifier,
-    minHeight: Dp = 220.dp,
+    // The floor the whole height budget is built around: [StackPlan] gives away the ad's 58 dp and
+    // then ~120 dp of card air before it lets this number move.
+    minHeight: Dp = StackTheme.sizes.chartFloor,
 ) {
     var selected by remember { mutableStateOf<Int?>(null) }
     val colors = AppTheme

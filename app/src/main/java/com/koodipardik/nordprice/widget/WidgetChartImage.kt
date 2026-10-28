@@ -5,6 +5,7 @@ import androidx.compose.ui.unit.Dp
 import com.koodipardik.nordprice.core.PriceFormat
 import com.koodipardik.nordprice.ui.chart.ChartSceneBuilder
 import com.koodipardik.nordprice.ui.chart.ChartStyles
+import com.koodipardik.nordprice.ui.chart.NoAxisLabelCulling
 import com.koodipardik.nordprice.ui.theme.AppColors
 
 /**
@@ -40,6 +41,9 @@ object WidgetChartImage {
             widthPx = widthPx.toFloat(),
             heightPx = heightPx.toFloat(),
             density = scale,
+            // The widget paints its own labels into the bitmap at a size of its own, so the app's font
+            // scale says nothing about whether they fit; it judges its own crowding in drawLabels.
+            axisLabelHeightPx = NoAxisLabelCulling,
         )
         return WidgetChartRenderer.render(
             scene, style, widthPx, heightPx, 9f * scale, drawLabels = drawAxisLabels,

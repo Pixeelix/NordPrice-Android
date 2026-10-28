@@ -167,7 +167,10 @@ class ChartStyleTest {
             xLabel = { index -> listOf(0, 7, 14).let { if (index in it) "day$index" else "" } },
             xTickIndices = { count -> (0 until count step 7).toList() },
         )
-        val scene = ChartSceneBuilder.build(bars, style, selected = null, widthPx = 800f, heightPx = 300f, density = 2f)
+        val scene = ChartSceneBuilder.build(
+            values = bars, style = style, selected = null, widthPx = 800f, heightPx = 300f,
+            density = 2f, axisLabelHeightPx = 30f,
+        )
 
         assertEquals(listOf(0, 7, 14), scene.xTicks.map { it.value.toInt() })
         assertEquals(listOf("day0", "day7", "day14"), scene.xTicks.map { it.label })
@@ -183,7 +186,10 @@ class ChartStyleTest {
             colorful = true,
             resolution = com.koodipardik.nordprice.core.ChartResolution.ONE_HOUR,
         ) { "%.2f".format(it) }
-        val scene = ChartSceneBuilder.build(day, style, selected = null, widthPx = 800f, heightPx = 300f, density = 2f)
+        val scene = ChartSceneBuilder.build(
+            values = day, style = style, selected = null, widthPx = 800f, heightPx = 300f,
+            density = 2f, axisLabelHeightPx = 30f,
+        )
 
         assertEquals(listOf("00", "06", "12", "18"), scene.xTicks.map { it.label })
     }

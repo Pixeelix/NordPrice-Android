@@ -165,6 +165,14 @@ Data comes from `https://dashboard.elering.ee/api/nps/price` (Elering), on plain
   which the system draws itself while the app is backgrounded — into its default channel, not the
   app's `price_alerts` one. Foreground alerts do use ours. Matching them needs
   `android: { notification: { channel_id: "price_alerts" } }` in `sendPriceNotification`.
+* **Phones are portrait, and a short window pays for it in a set order.** iOS's phone stacks shrink
+  themselves and only reach for a scroll view at accessibility text sizes
+  (`scrollsAtAccessibilitySizes`). A Compose `Column` does neither: children with minimums keep them and
+  the rest is laid out past the bottom edge, unreachable. So `MainActivity` asks for portrait on a
+  phone-sized window and every screen budgets its height — see *Large screens*.
+* **The chart's axis drops labels it cannot print.** A plot too short for its tick labels thins them and
+  then omits them, keeping the gridlines; iOS's Swift Charts decides this for itself and has no
+  equivalent rule to port. See `ChartScene.dropUnreadable`.
 
 Not ported yet: Firebase Analytics (the iOS app does not use it either, so it stays out). AdMob
 banners and UMP consent are ported and ship in both build types — see *Ads* below. Threshold
@@ -262,6 +270,30 @@ What the console side looks like now, and what is still owed there:
 The tablet layout switches on `smallestScreenWidthDp >= 600`, which — like the iOS check for a
 regular width *and* a regular height — keeps a phone in landscape on the phone layout, because
 `smallestScreenWidthDp` ignores rotation.
+
+On a foldable that number is a property of *which screen you are on*, so one device runs both
+layouts: the Pixel 9 Pro Fold's cover screen is 411×923 dp (phone), its inner screen 852×883 dp
+(tablet). Neither is the shape the phone stack was drawn for once the cover screen turns sideways,
+which is what `ui/LayoutBudget.kt` is for.
+
+* `AppShell` measures the Scaffold's content box and provides it as `LocalContentHeightDp`.
+  `LocalConfiguration.screenHeightDp` is not used for this: it counts the system bars differently
+  depending on release and edge-to-edge, and in split screen it describes the display rather than the
+  window the app was given.
+* `stackPlanFor(kind, heightDp)` turns that into a `StackPlan(tier, showBanner)`. The tiers are an
+  order of sacrifice, chosen so the chart's floor is what never moves: **the ad slot goes first**
+  (`AnchorBanner` reads `StackTheme.showBanner` and stays out of the layout), **then the cards
+  compress** (`StackTheme.sizes` — title, the hero's value box, unit and card text, and the 220 dp
+  chart floor becoming 160 dp), **and only a window that cannot hold the compact stack scrolls**
+  (`StackTier.Scroll`, where `weight(1f)` becomes a concrete height because a scrolling column has no
+  leftover to distribute).
+* Every figure in that file is the sum of its parts, so a new card means updating one constant rather
+  than rediscovering the overflow on a device. `StackPlanTest` pins the boundaries at the shapes real
+  windows have.
+* Phones ask for `SCREEN_ORIENTATION_PORTRAIT` at runtime (`AppShell`), tablets for `UNSPECIFIED`. It
+  is runtime rather than `android:screenOrientation` because **Android ignores orientation requests on
+  windows of 600 dp and wider** — a foldable's inner screen and every tablet stay the user's to turn,
+  so the budget above is what protects them, not the lock.
 
 ## Widget
 

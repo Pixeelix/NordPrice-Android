@@ -15,6 +15,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
@@ -36,6 +38,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -70,6 +73,13 @@ import com.koodipardik.nordprice.ui.chart.ChartHeader
 import com.koodipardik.nordprice.ui.components.appCard
 import com.koodipardik.nordprice.ui.components.unitLabel
 import com.koodipardik.nordprice.ui.TabletSideColumnWidth
+import com.koodipardik.nordprice.ui.LocalStackPlan
+import com.koodipardik.nordprice.ui.StackKind
+import com.koodipardik.nordprice.ui.StackTheme
+import com.koodipardik.nordprice.ui.StackTier
+import com.koodipardik.nordprice.ui.currentStackPlan
+import com.koodipardik.nordprice.ui.leftoverOrFloor
+import com.koodipardik.nordprice.ui.sizes
 import com.koodipardik.nordprice.ui.WideContentMaxWidth
 import com.koodipardik.nordprice.ui.periodTitle
 import com.koodipardik.nordprice.ui.rememberIsTablet
@@ -126,55 +136,70 @@ fun HistoryScreen() {
     // side-by-side row, exactly as iOS draws the iPad dashboard; every other window stacks the graph
     // under the selector. The cap on the stacked column stops a 10" tablet stretching the cards edge to
     // edge; a phone never reaches it, so phones run the same code they always did.
-    val window = LocalConfiguration.current
-    if (rememberIsTablet() && window.screenHeightDp < GraphUnderSelectorMinWindowHeightDp) {
-        Row(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = CardHorizontalInset, vertical = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-            verticalAlignment = Alignment.Top,
-        ) {
-            Column(
-                modifier = Modifier.width(TabletSideColumnWidth),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
+    val plan = currentStackPlan(StackKind.History)
+    CompositionLocalProvider(LocalStackPlan provides plan) {
+        val sizes = plan.sizes()
+        val window = LocalConfiguration.current
+        if (rememberIsTablet() && window.screenHeightDp < GraphUnderSelectorMinWindowHeightDp) {
+            Row(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = CardHorizontalInset, vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                verticalAlignment = Alignment.Top,
             ) {
-                ScreenTitle(title)
-                HistoryCards(state, settings, viewModel)
+                Column(
+                    modifier = Modifier.width(TabletSideColumnWidth),
+                    verticalArrangement = Arrangement.spacedBy(sizes.cardGap),
+                ) {
+                    ScreenTitle(title)
+                    HistoryCards(state, settings, viewModel)
+                }
+                Column(modifier = Modifier.weight(1f).fillMaxHeight()) {
+                    retryAndToggle(Modifier.weight(1f).fillMaxWidth())
+                    // Same slot as the stacked layout below, and for the same reason it goes under the
+                    // graph rather than into the card column: iOS banners both of its history layouts
+                    // (`HistoryView.swift:73` and `:95`). The Row's own 8 dp vertical padding is what keeps
+                    // this off the bottom of the window, so no trailing spacer here.
+                    AnchorBanner(AdPlacement.HISTORY)
+                }
             }
-            Column(modifier = Modifier.weight(1f).fillMaxHeight()) {
-                retryAndToggle(Modifier.weight(1f).fillMaxWidth())
-                // Same slot as the stacked layout below, and for the same reason it goes under the
-                // graph rather than into the card column: iOS banners both of its history layouts
-                // (`HistoryView.swift:73` and `:95`). The Row's own 8 dp vertical padding is what keeps
-                // this off the bottom of the window, so no trailing spacer here.
-                AnchorBanner(AdPlacement.HISTORY)
+        } else {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = CardHorizontalInset),
+                contentAlignment = Alignment.TopCenter,
+            ) {
+                Column(
+                    modifier = Modifier
+                        .widthIn(max = WideContentMaxWidth)
+                        .fillMaxSize()
+                        .then(
+                            // The graph has a floor now, so a window that cannot hold the cards above it
+                            // has to give somewhere else: this is the scroll that stops the plot from
+                            // being pushed past the bottom edge, which is what the sideways cover screen
+                            // and Samsung's split-screen halves do.
+                            if (plan.tier == StackTier.Scroll) {
+                                Modifier.verticalScroll(rememberScrollState())
+                            } else {
+                                Modifier
+                            },
+                        ),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    ScreenTitle(title)
+                    HistoryCards(state, settings, viewModel)
+                    Spacer(Modifier.height(sizes.cardGap))
+                    retryAndToggle(leftoverOrFloor(plan, sizes.chartFloor))
+                    // The graph holds every leftover pixel, so the banner takes its height from the plot
+                    // as it animates in — the same collapse-until-filled shape PriceScreen uses, and the
+                    // reason an ad-free screen (no fill, no consent, Sample data) is a normal-looking
+                    // screen.
+                    AnchorBanner(AdPlacement.HISTORY)
+                    Spacer(Modifier.height(8.dp))
+                }
             }
-        }
-        return
-    }
-
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(horizontal = CardHorizontalInset),
-        contentAlignment = Alignment.TopCenter,
-    ) {
-        Column(
-            modifier = Modifier
-                .widthIn(max = WideContentMaxWidth)
-                .fillMaxSize(),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            ScreenTitle(title)
-            HistoryCards(state, settings, viewModel)
-            Spacer(Modifier.height(12.dp))
-            retryAndToggle(Modifier.fillMaxWidth().weight(1f))
-            // The graph holds every leftover pixel, so the banner takes its height from the plot as it
-            // animates in — the same collapse-until-filled shape PriceScreen uses, and the reason an
-            // ad-free screen (no fill, no consent, Sample data) is a normal-looking screen.
-            AnchorBanner(AdPlacement.HISTORY)
-            Spacer(Modifier.height(8.dp))
         }
     }
 }
@@ -455,6 +480,10 @@ private fun HistoryChart(
     Column(
         modifier = modifier
             .fillMaxWidth()
+            // The day chart's card has had this floor for as long as it has existed; history never
+            // did, which is why its plot collapsed to a sliver with its axis labels printed across
+            // the bars instead of beside them.
+            .heightIn(min = StackTheme.sizes.chartFloor)
             .appCard(cornerRadius = 14.dp)
             .padding(bottom = 6.dp),
     ) {

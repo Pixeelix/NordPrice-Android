@@ -1,6 +1,7 @@
 package com.koodipardik.nordprice.ui
 
 import android.app.Activity
+import android.content.pm.ActivityInfo
 import android.view.WindowManager
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,6 +19,7 @@ import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -28,7 +30,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -89,8 +93,12 @@ fun NordPriceRoot() {
         return
     }
 
-    AppShell(settings.alwaysOnDisplay, settings.language.code)
     val tablet = rememberIsTablet()
+    AppShell(settings.alwaysOnDisplay, settings.language.code, tablet)
+    val density = LocalDensity.current
+    // The screens budget their cards against this, so it is measured once here rather than guessed
+    // from the display configuration in each of them.
+    var measuredHeightDp by remember { mutableIntStateOf(0) }
 
     Box(modifier = Modifier.fillMaxSize()) {
         GradientBackground {
@@ -135,12 +143,20 @@ fun NordPriceRoot() {
                 Box(
                     // The Scaffold's contentPadding already clears the status bar and the
                     // bottom bar; padding the system bars on top of it pushed everything down.
+                    // Measuring this box — not `LocalConfiguration.screenHeightDp` — is what tells the
+                    // screens how tall they really are, system bars and split-screen neighbours
+                    // included; see [currentStackPlan].
                     modifier = Modifier
                         .padding(contentPadding)
-                        .fillMaxSize(),
+                        .fillMaxSize()
+                        .onSizeChanged {
+                            measuredHeightDp = with(density) { it.height.toDp().value.toInt() }
+                        },
                 ) {
-                    val destinations = tabs(tablet)
-                    destinations.getOrNull(selected)?.content?.invoke()
+                    CompositionLocalProvider(LocalContentHeightDp provides measuredHeightDp) {
+                        val destinations = tabs(tablet)
+                        destinations.getOrNull(selected)?.content?.invoke()
+                    }
                 }
             }
         }
@@ -149,13 +165,28 @@ fun NordPriceRoot() {
 
 /**
  * Side effects that belong to the application rather than to a screen: the keep-screen-on flag
- * (iOS `UIApplication.isIdleTimerDisabled`) and the in-app language, which on Android is the
- * per-app locales API and therefore needs the activity to be re-created with the new config.
+ * (iOS `UIApplication.isIdleTimerDisabled`), the in-app language, which on Android is the per-app
+ * locales API and therefore needs the activity to be re-created with the new config, and the
+ * orientation the window's layout can actually hold.
  */
 @Composable
-private fun AppShell(alwaysOnDisplay: Boolean, languageCode: String) {
+private fun AppShell(alwaysOnDisplay: Boolean, languageCode: String, tablet: Boolean) {
     val context = LocalContext.current
     val activity = context as? Activity
+
+    // Phone-sized windows are portrait-only: the phone stack is a card column over a chart, and turned
+    // sideways it asks a ~415 dp window for ~700 dp of patience. Asked politely at runtime rather than
+    // in the manifest, because Android ignores orientation requests once the window is sw600 or larger
+    // — a foldable's inner screen and every tablet stay the user's to turn, which is exactly why the
+    // layouts still budget their height (see [StackPlan]) instead of relying on this.
+    DisposableEffect(tablet) {
+        activity?.requestedOrientation = if (tablet) {
+            ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+        } else {
+            ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+        }
+        onDispose { }
+    }
 
     DisposableEffect(alwaysOnDisplay) {
         val window = activity?.window

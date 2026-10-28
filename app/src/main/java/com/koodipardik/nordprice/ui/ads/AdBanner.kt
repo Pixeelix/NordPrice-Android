@@ -23,6 +23,7 @@ import com.google.android.gms.ads.AdSize
 import com.google.android.gms.ads.AdView
 import com.google.android.gms.ads.LoadAdError
 import com.koodipardik.nordprice.ui.rememberSettings
+import com.koodipardik.nordprice.ui.StackTheme
 
 /**
  * An anchor banner that behaves like iOS `AdaptiveBannerAd`: it occupies no vertical space until an
@@ -39,6 +40,12 @@ import com.koodipardik.nordprice.ui.rememberSettings
 fun AnchorBanner(placement: AdPlacement, modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val settings = rememberSettings()
+
+    // The chart's floor outranks the ad: when the measured window cannot hold both, the screen's
+    // [StackPlan] says so and the slot stays out of the layout entirely, which is the same shape a
+    // no-fill already produces. Gated here rather than at the four call sites because every placement
+    // owes the same duty to whatever it sits under.
+    if (!StackTheme.showBanner) return
 
     // iOS hides banners in screenshot mode (`AdRuntimeConfiguration.hidesAdBanners`). The Android
     // switch that means the same thing is DEBUG › Sample data, which is also the offline mode.

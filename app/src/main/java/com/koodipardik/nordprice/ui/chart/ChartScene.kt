@@ -29,17 +29,25 @@ object ChartSceneBuilder {
         widthPx: Float,
         heightPx: Float,
         density: Float,
+        /**
+         * How tall one axis label is, in the same pixels as [widthPx] and [heightPx];
+         * [NoAxisLabelCulling] for a renderer that prints its own labels and so cannot be judged from
+         * the scene. Labels that would print on top of each other, or on top of the bars, are left out
+         * of [ChartScene.yTicks] and [ChartScene.xTicks] — see [dropUnreadable].
+         */
+        axisLabelHeightPx: Float,
     ): ChartScene {
         val inset = style.insets
         val plot = SceneRect(
             left = inset.left * density,
             top = inset.top * density,
-            right = widthPx - inset.right * density,
-            bottom = heightPx - inset.bottom * density,
-        ).let {
-            // A surface narrower than the gutters still has to draw something.
-            if (it.right <= it.left || it.bottom <= it.top) SceneRect(0f, 0f, max(widthPx, 1f), max(heightPx, 1f)) else it
-        }
+            // The gutters are reserved whatever the box size. Dropping them, which an earlier version
+            // did when the plot did not fit, moved the bars under the axis labels: on a foldable's
+            // cover screen the history chart printed 0,06 / 0,04 / 0,02 straight through its own bars.
+            // A plot that cannot fit is squeezed to a hairline instead, which is empty but never wrong.
+            right = max(inset.left * density + 1f, widthPx - inset.right * density),
+            bottom = max(inset.top * density + 1f, heightPx - inset.bottom * density),
+        )
 
         val prices = values.map { it.price }
         val domain = style.domain(prices.minOrNull() ?: 0.0, prices.maxOrNull() ?: 1.0)
@@ -51,6 +59,8 @@ object ChartSceneBuilder {
         val y = SceneMapper { value -> plot.top + ((domain.endInclusive - value) / (domain.endInclusive - domain.start)).toFloat() * plot.height }
 
         val ops = mutableListOf<SceneOp>()
+        // Every nice tick earns a gridline; only the labels get thinned, so the plot's scaffolding
+        // does not shift when the window does.
         val yTicks = niceTickValues(domain.start, domain.endInclusive, style.yTickCount)
             .filter { it in domain.start..domain.endInclusive }
             .map { SceneTick(it, y(it), style.yTickLabel(it)) }
@@ -117,8 +127,12 @@ object ChartSceneBuilder {
         return ChartScene(
             plot = plot,
             ops = ops,
-            yTicks = yTicks,
-            xTicks = xTicks.map { SceneTick(it.toDouble(), x(it.toDouble()), style.xTickLabel(it, count)) },
+            yTicks = dropUnreadable(yTicks, axisLabelHeightPx * YLabelSpacingFactor),
+            xTicks = if (bandFits(inset.bottom * density, axisLabelHeightPx)) {
+                xTicks.map { SceneTick(it.toDouble(), x(it.toDouble()), style.xTickLabel(it, count)) }
+            } else {
+                emptyList()
+            },
             nowBadge = nowBadge,
             x = x,
             y = y,
@@ -126,6 +140,24 @@ object ChartSceneBuilder {
             indexAt = { px -> xStart + (px - plot.left) / plot.width * (xEnd - xStart) },
         )
     }
+
+    /**
+     * Labels the box cannot print without laying them on top of each other are left out: a crowded
+     * axis reads as a broken chart far more loudly than a sparse one. And when the box cannot hold
+     * two of them, the whole set goes — one lone number is not an axis.
+     */
+    private fun dropUnreadable(ticks: List<SceneTick>, minSpacingPx: Float): List<SceneTick> {
+        if (ticks.size < 2) return ticks
+        val kept = mutableListOf<SceneTick>()
+        for (tick in ticks.sortedBy { it.position }) {
+            if (kept.isEmpty() || tick.position - kept.last().position >= minSpacingPx) kept += tick
+        }
+        return if (kept.size < 2) emptyList() else kept.sortedBy { it.value }
+    }
+
+    /** The band a label owns has to clear the label itself, or it prints across the plot. */
+    private fun bandFits(bandPx: Float, labelPx: Float): Boolean =
+        bandPx >= labelPx * BandFitFactor
 
     private fun bars(
         values: List<ChartValue>,
@@ -244,6 +276,19 @@ internal fun fade(argb: Long, alpha: Float): Long {
 }
 
 data class SceneTick(val value: Double, val position: Float, val label: String)
+
+/**
+ * Pass as `ChartSceneBuilder.build`'s `axisLabelHeightPx` when the renderer prints its own labels and
+ * their height is therefore not the scene's business — the widget burns text into a bitmap at its own
+ * size, so the app's font scale says nothing about it. Zero-height labels always fit, which turns the
+ * culling rules off without a branch of its own.
+ */
+const val NoAxisLabelCulling = 0f
+
+/** Two y labels need more than their own height between them before they read as separate lines. */
+private const val YLabelSpacingFactor = 1.4f
+
+private const val BandFitFactor = 1.15f
 
 data class SceneRect(val left: Float, val top: Float, val right: Float, val bottom: Float) {
     val width get() = right - left

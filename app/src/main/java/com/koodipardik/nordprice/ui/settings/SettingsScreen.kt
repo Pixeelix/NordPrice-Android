@@ -94,10 +94,6 @@ import com.koodipardik.nordprice.ui.theme.AppTheme
 import com.koodipardik.nordprice.widget.WidgetPreviewSheet
 import kotlinx.coroutines.launch
 
-/**
- * Settings, ported from the iOS `Form`: the same sections, rows, icons and footers. The iOS
- * `navigationLink` pickers become bottom sheets, which is how Android presents the same choice.
- */
 @Composable
 fun SettingsScreen() {
     val container = rememberContainer()

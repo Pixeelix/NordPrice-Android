@@ -16,5 +16,12 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun rememberIsTablet(): Boolean = LocalConfiguration.current.smallestScreenWidthDp >= 600
 
-/** Width of the card column beside a chart on the tablet layouts, from the iOS dashboard. */
+/** Width of the card column beside a chart, on the two wide layouts that put them side by side. */
 val TabletSideColumnWidth = 340.dp
+
+/**
+ * Widest a stacked column of cards and chart gets on a large window. Past it the content is centred
+ * with margins instead of stretched edge to edge, which keeps a 10" tablet held upright reading as one
+ * page rather than a blown-up phone screen. A phone, and a 7" tablet in portrait, never reach it.
+ */
+val WideContentMaxWidth = 720.dp

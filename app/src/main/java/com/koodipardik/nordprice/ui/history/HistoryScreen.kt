@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -54,6 +55,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.koodipardik.nordprice.R
 import com.koodipardik.nordprice.core.ChartType
 import com.koodipardik.nordprice.core.PriceFormat
+import com.koodipardik.nordprice.ui.ads.AdPlacement
+import com.koodipardik.nordprice.ui.ads.AnchorBanner
 import com.koodipardik.nordprice.ui.barDate
 import com.koodipardik.nordprice.ui.chart.ChartCanvas
 import com.koodipardik.nordprice.ui.chart.ChartValue
@@ -67,6 +70,7 @@ import com.koodipardik.nordprice.ui.chart.ChartHeader
 import com.koodipardik.nordprice.ui.components.appCard
 import com.koodipardik.nordprice.ui.components.unitLabel
 import com.koodipardik.nordprice.ui.TabletSideColumnWidth
+import com.koodipardik.nordprice.ui.WideContentMaxWidth
 import com.koodipardik.nordprice.ui.periodTitle
 import com.koodipardik.nordprice.ui.rememberIsTablet
 import com.koodipardik.nordprice.ui.shortBarDate
@@ -111,14 +115,19 @@ fun HistoryScreen() {
         )
     }
 
-    // A tablet gets the iOS wide layout: the cards in a column beside the chart, which needs the
-    // room more than the cards do. In portrait the cards end around 40 % of the window while the
-    // chart filled the rest — a tall, stretched widget; it is capped at half the height there.
-    // Landscape keeps the fill: its window is only 800 dp tall to begin with. Phones never reach
-    // this branch; their chart keeps its `weight(1f)` share of the column.
-    if (rememberIsTablet()) {
-        val configuration = LocalConfiguration.current
-        val isPortrait = configuration.screenHeightDp > configuration.screenWidthDp
+    // The graph goes under the period selector: the cards take about 340 dp of height and whatever the
+    // window has left belongs to the graph, across the screen's whole width. What it replaces — the iOS
+    // wide layout, graph beside a fixed 340 dp card column — left a 205 dp strip for 27 month bars on
+    // this 601 dp-wide tablet, and the bottom 60 % of the window empty.
+    //
+    // One window shape still cannot have it. Turned sideways the same tablet is 962 dp wide but only
+    // 601 dp tall, and once the cards and the nav bar have spoken the graph is left under 100 dp — a
+    // card with its header and nothing to plot. So a tablet-sized window that is *short* keeps the
+    // side-by-side row, exactly as iOS draws the iPad dashboard; every other window stacks the graph
+    // under the selector. The cap on the stacked column stops a 10" tablet stretching the cards edge to
+    // edge; a phone never reaches it, so phones run the same code they always did.
+    val window = LocalConfiguration.current
+    if (rememberIsTablet() && window.screenHeightDp < GraphUnderSelectorMinWindowHeightDp) {
         Row(
             modifier = Modifier
                 .fillMaxSize()
@@ -133,36 +142,62 @@ fun HistoryScreen() {
                 ScreenTitle(title)
                 HistoryCards(state, settings, viewModel)
             }
-            retryAndToggle(Modifier.weight(1f).fillMaxHeight(if (isPortrait) 0.5f else 1f))
+            Column(modifier = Modifier.weight(1f).fillMaxHeight()) {
+                retryAndToggle(Modifier.weight(1f).fillMaxWidth())
+                // Same slot as the stacked layout below, and for the same reason it goes under the
+                // graph rather than into the card column: iOS banners both of its history layouts
+                // (`HistoryView.swift:73` and `:95`). The Row's own 8 dp vertical padding is what keeps
+                // this off the bottom of the window, so no trailing spacer here.
+                AnchorBanner(AdPlacement.HISTORY)
+            }
         }
         return
     }
 
-    Column(
+    Box(
         modifier = Modifier
             .fillMaxSize()
             .padding(horizontal = CardHorizontalInset),
-        horizontalAlignment = Alignment.CenterHorizontally,
+        contentAlignment = Alignment.TopCenter,
     ) {
-        ScreenTitle(title)
-        HistoryCards(state, settings, viewModel)
-        Spacer(Modifier.height(12.dp))
-        retryAndToggle(Modifier.fillMaxWidth().weight(1f))
-        Spacer(Modifier.height(8.dp))
+        Column(
+            modifier = Modifier
+                .widthIn(max = WideContentMaxWidth)
+                .fillMaxSize(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            ScreenTitle(title)
+            HistoryCards(state, settings, viewModel)
+            Spacer(Modifier.height(12.dp))
+            retryAndToggle(Modifier.fillMaxWidth().weight(1f))
+            // The graph holds every leftover pixel, so the banner takes its height from the plot as it
+            // animates in — the same collapse-until-filled shape PriceScreen uses, and the reason an
+            // ad-free screen (no fill, no consent, Sample data) is a normal-looking screen.
+            AnchorBanner(AdPlacement.HISTORY)
+            Spacer(Modifier.height(8.dp))
+        }
     }
 }
 
-/** Average card, cheapest/dearest card and the period control, shared by both layouts. */
+/**
+ * Below this window height the stacked history column has nothing left over for the graph: the title
+ * and the three cards take ~340 dp, the status and navigation bars another ~115 dp, and what is left of
+ * a 601 dp window is a header with no plot under it. 700 dp is that same sum plus the ~220 dp of chart
+ * iOS treats as the readable floor.
+ */
+private const val GraphUnderSelectorMinWindowHeightDp = 700
+
+/** Average card, cheapest/dearest card and the period control, shared by both arrangements. */
 @Composable
 private fun HistoryCards(
     state: HistoryUiState,
     settings: com.koodipardik.nordprice.settings.Settings,
     viewModel: HistoryViewModel,
 ) {
-    // The three cards used to sit flush: the phone layout spaces only what is *below* this group and
-    // the tablet column spaces only the title above it, so nothing ever separated these siblings.
-    // 12 dp is the rhythm every other card stack in the app uses (PriceScreen's phone and tablet
-    // columns), and these cards carry a 1 dp border, where touching reads as one box.
+    // The three cards used to sit flush: each layout spaced only what sat *outside* this group — the
+    // phone a Spacer below it, the tablet column the title above it — so nothing ever separated these
+    // siblings. 12 dp is the rhythm every other card stack in the app uses (PriceScreen's phone and
+    // tablet columns), and these cards carry a 1 dp border, where touching reads as one box.
     Column(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -394,7 +429,11 @@ private fun HistoryChart(
     val values: List<ChartValue> = remember(priced, settings.unit, settings.includeTax) {
         priced.toChartValues(displayPrice)
     }
-    val count = state.bars.size
+    // Tick indices count the bars that are *drawn*, not the slots in the period. `state.bars` runs to
+    // the end of the month or year and carries empty slots for the days still to come; a tick index
+    // past the last plotted bar lands beyond the plot's right edge, where the card clips it — which is
+    // how "29" turned up over the frame on a wide tablet, in a month that had only drawn 27 bars.
+    val count = priced.size
     val tickIndices = remember(state.period, count) {
         when (state.period) {
             HistoryPeriod.WEEK -> (0 until count).toList()
@@ -405,9 +444,9 @@ private fun HistoryChart(
     // Axis labels are resolved up front: the canvas takes a plain function, and Compose text
     // cannot be produced from one.
     val axisFormatter = axisLabelFormatter(state.period)
-    val axisLabels: Map<Int, String> = remember(state.bars, tickIndices, axisFormatter) {
+    val axisLabels: Map<Int, String> = remember(priced, tickIndices, axisFormatter) {
         tickIndices.mapNotNull { index ->
-            state.bars.getOrNull(index)?.let { bar -> index to axisFormatter.format(bar.start) }
+            priced.getOrNull(index)?.let { bar -> index to axisFormatter.format(bar.start) }
         }.toMap()
     }
 
